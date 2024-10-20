@@ -8,7 +8,8 @@
     <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/vote_authority_service/src/main/java" charset="UTF-8" />
-    <file url="file://$PROJECT_DIR$/vote_authority_service/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/vote_authority_service_temp/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/vote_authority_service_temp/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/vote_count_service/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/vote_count_service/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/vote_storage_service/src/main/java" charset="UTF-8" />
