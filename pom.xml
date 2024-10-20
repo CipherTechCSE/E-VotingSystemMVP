@@ -9,12 +9,12 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
+        <module>vote_storage_service</module>
+        <module>vote_verification_service</module>
+        <module>vote_count_service</module>
+        <module>vote_submission_service</module>
         <module>auth_service</module>
         <module>vote_authority_service</module>
-        <module>vote_submission_service</module>
-        <module>vote_verification_service</module>
-        <module>vote_storage_service</module>
-        <module>vote_count_service</module>
         <module>api_gateway</module>
     </modules>
 
