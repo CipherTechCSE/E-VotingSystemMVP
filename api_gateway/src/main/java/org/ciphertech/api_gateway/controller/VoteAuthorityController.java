@@ -1,6 +1,6 @@
 package org.ciphertech.api_gateway.controller;
 
-import org.ciphertech.vote_authority_service.VoteAuthorityService;
+import org.ciphertech.api_gateway.services.vote_authority_service.VoteAuthorityService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
