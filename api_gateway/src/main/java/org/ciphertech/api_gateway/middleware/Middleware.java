@@ -24,8 +24,13 @@ public class Middleware implements Filter {
     private final AuthService authService;
     private final JwtUtil jwtUtil;
 
-    // List of public routes that don't require authorization
-    private static final Set<String> PUBLIC_ROUTES = Set.of("/public/login", "/public/register", "/public/health-check");
+    private static final Set<String> PUBLIC_ROUTES = Set.of(
+            "/public/login",
+            "/public/register",
+            "/public/health-check",
+            "/api/auth/register",
+            "/api/auth/login"
+    );
 
     @Autowired
     public Middleware(AuthService authService, JwtUtil jwtUtil) {
@@ -40,7 +45,6 @@ public class Middleware implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
-        // Extract the request URI
         String requestURI = httpRequest.getRequestURI();
 
         // Allow public routes without any authentication
@@ -49,60 +53,45 @@ public class Middleware implements Filter {
             return;
         }
 
-        // Extract the token from the Authorization header
         String token = httpRequest.getHeader("Authorization");
 
-        // If no token is provided, return unauthorized
         if (token == null || !token.startsWith("Bearer ")) {
+            httpResponse.setContentType("application/json");
             httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            httpResponse.getWriter().write("Unauthorized: Missing or invalid token");
+            httpResponse.getWriter().write("{\"error\": \"Unauthorized: Missing or invalid token\"}");
             return;
         }
 
-        // Remove "Bearer " prefix from the token
         token = token.substring(7);
-
-        // Extract username from the token
         String username = jwtUtil.extractUsername(token);
 
-        // Validate token with the extracted username
         if (!jwtUtil.validateToken(token, username)) {
+            httpResponse.setContentType("application/json");
             httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            httpResponse.getWriter().write("Unauthorized: Invalid token");
+            httpResponse.getWriter().write("{\"error\": \"Unauthorized: Invalid token\"}");
             return;
         }
 
-        // Extract user role after token validation
         String role = jwtUtil.extractRole(token);
-
-        // Define admin and voter specific routes
         Set<String> adminRoutes = Set.of("/admin/dashboard", "/admin/manage-users");
         Set<String> voterRoutes = Set.of("/voter/vote", "/voter/profile");
 
-        // Route validation based on role
         if (adminRoutes.contains(requestURI) && !"ADMIN".equals(role)) {
+            httpResponse.setContentType("application/json");
             httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            httpResponse.getWriter().write("Forbidden: Admin access required");
+            httpResponse.getWriter().write("{\"error\": \"Forbidden: Admin access required\"}");
             return;
         }
 
         if (voterRoutes.contains(requestURI) && !"VOTER".equals(role)) {
+            httpResponse.setContentType("application/json");
             httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            httpResponse.getWriter().write("Forbidden: Voter access required");
+            httpResponse.getWriter().write("{\"error\": \"Forbidden: Voter access required\"}");
             return;
         }
 
-        // If token is valid and the user is authorized for the requested route, continue
         chain.doFilter(request, response);
     }
 
-    @Override
-    public void init(FilterConfig filterConfig) throws ServletException {
-        // Optional initialization logic if needed
-    }
-
-    @Override
-    public void destroy() {
-        // Optional cleanup logic if needed
-    }
+    // Optional init and destroy methods can be removed if not used
 }
