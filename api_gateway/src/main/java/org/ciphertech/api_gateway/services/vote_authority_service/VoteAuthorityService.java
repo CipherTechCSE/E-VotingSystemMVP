@@ -1,6 +1,9 @@
 package org.ciphertech.api_gateway.services.vote_authority_service;
 
+import org.ciphertech.api_gateway.services.vote_authority_service.entity.Candidate;
 import org.ciphertech.api_gateway.services.vote_authority_service.entity.Election;
+import org.ciphertech.api_gateway.services.vote_authority_service.repository.BallotRepository;
+import org.ciphertech.api_gateway.services.vote_authority_service.repository.CandidateRepository;
 import org.ciphertech.api_gateway.services.vote_authority_service.repository.ElectionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -11,17 +14,37 @@ import java.time.LocalDateTime;
 public class VoteAuthorityService {
 
     private final ElectionRepository electionRepository;
+    private final CandidateRepository candidateRepository;
+    private final BallotRepository ballotRepository;
 
     @Autowired
-    public VoteAuthorityService(ElectionRepository electionRepository) {
+    public VoteAuthorityService(ElectionRepository electionRepository, CandidateRepository candidateRepository, BallotRepository ballotRepository) {
         this.electionRepository = electionRepository;
+        this.candidateRepository = candidateRepository;
+        this.ballotRepository = ballotRepository;
     }
 
     // Add a candidate to the election
-    public String addCandidate(String name, String party) {
-        // Logic for adding a candidate
-        return "Candidate added!";
+    public Candidate addCandidate(Candidate candidate) {
+
+        // Validate inputs (e.g., ensure candidate name is not empty, etc.)
+        if (candidate.getName().isEmpty()) {
+            throw new IllegalArgumentException("Candidate name cannot be empty.");
+        }
+
+        // Save the candidate to the database
+        return candidateRepository.save(candidate);
     }
+
+    // Delete a candidate from the election
+    public Boolean deleteCandidate(Integer id) {
+        Candidate candidate = candidateRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Candidate not found with id: " + id));
+        candidateRepository.delete(candidate);
+
+        return true;
+    }
+
 
     // Remove a candidate from the election
     public String removeCandidate(String name) {
@@ -29,17 +52,39 @@ public class VoteAuthorityService {
         return "Candidate removed!";
     }
 
-    public Election createElection(String electionName, LocalDateTime startDate, LocalDateTime endDate) {
+    public Election createElection(Election election) {
         // Validate inputs (e.g., ensure endDate is after startDate, etc.)
-        if (startDate.isAfter(endDate)) {
+        if (election.getEndDate().isBefore(election.getStartDate())) {
             throw new IllegalArgumentException("End date must be after start date.");
         }
 
-        // Create a new Election entity
-        Election election = new Election(electionName, startDate, endDate, true);
-
-        // Save it to the database
+        // Save the election to the database
         return electionRepository.save(election);
+    }
+
+    public Election updateElection(Election election, Integer id) {
+        // Validate inputs (e.g., ensure endDate is after startDate, etc.)
+        if (election.getEndDate().isBefore(election.getStartDate())) {
+            throw new IllegalArgumentException("End date must be after start date.");
+        }
+
+        // Update the election in the database
+        Election existingElection = electionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found with id: " + id));
+
+        existingElection.setStartDate(election.getStartDate());
+        existingElection.setEndDate(election.getEndDate());
+        existingElection.setElectionName(election.getElectionName());
+
+        return electionRepository.save(existingElection);
+    }
+
+    public Boolean deleteElection(Integer id) {
+        Election election = electionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found with id: " + id));
+        electionRepository.delete(election);
+
+        return true;
     }
 
     // Start an election
