@@ -1,6 +1,7 @@
 package org.ciphertech.api_gateway.middleware;
 
 import org.ciphertech.api_gateway.services.auth_service.AuthService;
+import org.ciphertech.api_gateway.services.auth_service.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -21,13 +22,15 @@ import java.util.Set;
 public class Middleware implements Filter {
 
     private final AuthService authService;
+    private final JwtUtil jwtUtil;
 
     // List of public routes that don't require authorization
     private static final Set<String> PUBLIC_ROUTES = Set.of("/public/login", "/public/register", "/public/health-check");
 
     @Autowired
-    public Middleware(AuthService authService) {
+    public Middleware(AuthService authService, JwtUtil jwtUtil) {
         this.authService = authService;
+        this.jwtUtil = jwtUtil;
     }
 
     @Override
@@ -49,15 +52,28 @@ public class Middleware implements Filter {
         // Extract the token from the Authorization header
         String token = httpRequest.getHeader("Authorization");
 
-        // If no token, return unauthorized
-        if (token == null || !authService.validateToken(token)) {
+        // If no token is provided, return unauthorized
+        if (token == null || !token.startsWith("Bearer ")) {
             httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            httpResponse.getWriter().write("Unauthorized");
+            httpResponse.getWriter().write("Unauthorized: Missing or invalid token");
+            return;
+        }
+
+        // Remove "Bearer " prefix from the token
+        token = token.substring(7);
+
+        // Extract username from the token
+        String username = jwtUtil.extractUsername(token);
+
+        // Validate token with the extracted username
+        if (!jwtUtil.validateToken(token, username)) {
+            httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            httpResponse.getWriter().write("Unauthorized: Invalid token");
             return;
         }
 
         // Extract user role after token validation
-        String role = authService.getUserRoleFromToken(token);
+        String role = jwtUtil.extractRole(token);
 
         // Define admin and voter specific routes
         Set<String> adminRoutes = Set.of("/admin/dashboard", "/admin/manage-users");

@@ -4,6 +4,8 @@ import org.ciphertech.api_gateway.dto.auth.LoginRequest;
 import org.ciphertech.api_gateway.dto.auth.LogoutRequest;
 import org.ciphertech.api_gateway.dto.auth.RegisterRequest;
 import org.ciphertech.api_gateway.dto.auth.*;
+import org.ciphertech.api_gateway.services.auth_service.repositories.UserRepository;
+import org.ciphertech.api_gateway.services.auth_service.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -17,11 +19,14 @@ public class AuthService {
     @Autowired
     private PasswordEncoder passwordEncoder;  // For password hashing
 
-    // Example method to validate tokens
-    public String validateToken(String token) {
+    @Autowired
+    private UserRepository userRepository;
+
+    // Example method to validate tokensLoginRequest
+    public String validateToken(String token , String username) {
         // Validate the token and return user role or error message
-        if (jwtUtil.validateToken(token)) {
-            return jwtUtil.extractRole(token); // Extract user role from the token
+        if (jwtUtil.validateToken(token , username)) {
+            return jwtUtil.extractRole(token);
         } else {
             return "Invalid token";
         }
