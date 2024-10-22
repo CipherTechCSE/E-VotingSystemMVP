@@ -8,10 +8,14 @@ import org.springframework.stereotype.Service;
 @Service
 public class AuthService {
     // Example method to validate tokens (this can be replaced with real logic)
-    public boolean validateToken(String token) {
+    public String validateToken(String token) {
         // Your token validation logic here
         // For simplicity, let's assume "valid-token" is the only valid token
-        return "valid-token".equals(token);
+        if ("valid-token".equals(token)) {
+            return "User role";
+        } else {
+            return "Invalid token";
+        }
     }
 
     // Example method to login users (this can be replaced with real logic)
