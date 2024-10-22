@@ -3,8 +3,11 @@ package org.ciphertech.api_gateway.services.auth_service.utils;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
 
+import java.security.Key;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -13,8 +16,7 @@ import java.util.function.Function;
 @Component
 public class JwtUtil {
 
-    private String SECRET_KEY = "your_secret_key";  // Use environment variables for security
-
+    private Key SECRET_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS256); // Secure key generation
     // Generate token with claims for username and role
     public String generateToken(String username, String role) {
         Map<String, Object> claims = new HashMap<>();
