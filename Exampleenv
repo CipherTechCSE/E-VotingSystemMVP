@@ -1,0 +1,14 @@
+
+# PostgreSQL configuration
+DB_URL=jdbc:postgresql://localhost:5432/e_voting
+DB_USERNAME=anjula
+DB_PASSWORD=anjula
+DB_DRIVER=org.postgresql.Driver
+DB_DIALECT=org.hibernate.dialect.PostgreSQLDialect
+
+# MySQL configuration
+#DB_URL=jdbc:mysql://localhost:3306/voting_system_db
+#DB_USERNAME=stduser
+#DB_PASSWORD=Abc@1234
+#DB_DRIVER=com.mysql.cj.jdbc.Driver
+#DB_DIALECT=org.hibernate.dialect.MySQLDialect
