@@ -1,21 +1,26 @@
 package org.ciphertech.api_gateway.services.vote_authority_service;
 
 import org.ciphertech.api_gateway.services.auth_service.models.User;
-import org.ciphertech.api_gateway.services.vote_authority_service.cryptography.GroupSignature;
-import org.ciphertech.api_gateway.services.vote_authority_service.cryptography.MultiSignature;
+import org.ciphertech.api_gateway.common.cryptography.GroupSignature;
+import org.ciphertech.api_gateway.common.cryptography.MultiSignature;
 import org.ciphertech.api_gateway.services.vote_authority_service.entity.*;
 import org.ciphertech.api_gateway.services.vote_authority_service.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.security.GeneralSecurityException;
-import java.security.KeyPair;
-import java.security.NoSuchAlgorithmException;
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+import java.security.*;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.time.LocalDateTime;
 import java.util.Base64;
 
 @Service
 public class VoteAuthorityService {
+
+    private final String SECRET_KEY = "1234567890123456";
+    private static final String AES = "AES"; // AES algorithm
 
     private final ElectionRepository electionRepository;
     private final CandidateRepository candidateRepository;
@@ -24,6 +29,7 @@ public class VoteAuthorityService {
     private final VoterRepository voterRepository;
     private final MultiSignature multiSignature;
     private final GroupSignature groupSignature;
+
 
     private enum ServiceId {
         VOTE_AUTHORITY_SERVICE(1),
@@ -51,29 +57,34 @@ public class VoteAuthorityService {
             CandidateRepository candidateRepository,
             BallotRepository ballotRepository,
             ServiceRepository serviceRepository,
-            VoterRepository voterRepository,
-            MultiSignature multiSignature, // Autowired bean
-            GroupSignature groupSignature  // Autowired bean
+            VoterRepository voterRepository
     ) {
         this.electionRepository = electionRepository;
         this.candidateRepository = candidateRepository;
         this.ballotRepository = ballotRepository;
         this.serviceRepository = serviceRepository;
         this.voterRepository = voterRepository;
-        this.multiSignature = multiSignature;
-        this.groupSignature = groupSignature;
+        this.multiSignature = new MultiSignature(2048);
+        this.groupSignature = new GroupSignature(2048);
 
         if (multiSignature == null) {
             throw new IllegalStateException("MultiSignature bean not found!");
         }
         // Create a multi-signature key pair for the service
         try {
-            multiSignature.storeServiceKeys(
+            VotingSystemService service = multiSignature.getServiceKeys(
                     (long) ServiceId.VOTE_AUTHORITY_SERVICE.getId(),
                     "Vote Authority Service",
                     "Service responsible for managing elections",
                     "http://localhost:8080"
             );
+
+            service.setPrivateKey(encryptKey(service.getPrivateKey())); // Encrypt the private key
+            service.setPublicKey(encryptKey(service.getPublicKey()));  // Encrypt the public key
+
+            // Store
+            serviceRepository.save(service);
+
         } catch (GeneralSecurityException e) {
             e.printStackTrace();
         }
@@ -167,8 +178,12 @@ public class VoteAuthorityService {
         // Get the ballot content and convert it into a byte stream
         byte[] ballotContent = ballot.getBallotContent();
 
+        Long serviceId = (long) ServiceId.VOTE_AUTHORITY_SERVICE.getId();
+        // Get the multi signature key pair
+        KeyPair keyPair = retrieveServiceKeys(serviceId);
+
         // Get the multi signature
-        String multiSignature = this.multiSignature.signData((long) ServiceId.VOTE_AUTHORITY_SERVICE.getId(), ballotContent);
+        String multiSignature = this.multiSignature.signData(serviceId, ballotContent, keyPair);
 
         ballot.addMultiSignature(multiSignature);
 
@@ -197,7 +212,7 @@ public class VoteAuthorityService {
     }
 
     // Generate group keys for a single eligible voter and store them
-    public KeyPair joinVoterGroup(User user, Long electionId) throws NoSuchAlgorithmException {
+    public KeyPair joinVoterGroup(User user, Long electionId) throws NoSuchAlgorithmException, GeneralSecurityException {
         KeyPair voterKeyPair = groupSignature.joinVotersGroup(user.getId().toString()); // Generate a key pair for the voter
         String publicKey = Base64.getEncoder().encodeToString(voterKeyPair.getPublic().getEncoded()); // Encode the public key
 
@@ -233,12 +248,54 @@ public class VoteAuthorityService {
         }
 
         // Create a new Service with multi-signature and store the service keys
-        return multiSignature.storeServiceKeys(serviceId,serviceName, serviceDescription, serviceUrl);
+        VotingSystemService service = multiSignature.getServiceKeys(serviceId,serviceName, serviceDescription, serviceUrl);
+
+        // Encrypt the service keys
+        service.setPrivateKey(encryptKey(service.getPrivateKey()));
+        service.setPublicKey(encryptKey(service.getPublicKey()));
+
+        // Save the service to the database
+        return serviceRepository.save(service);
     }
 
     // Notify the vote count service
+
     public String notifyVoteCount() {
         // Logic to notify the vote count service
         return "Vote count service notified!";
+    }
+
+    // Retrieve service keys based on the service ID
+    private KeyPair retrieveServiceKeys(Long serviceId) throws GeneralSecurityException {
+        VotingSystemService service = serviceRepository.findById(serviceId).orElse(null);
+
+        if (service != null) {
+            byte[] decryptedPublicKey = decryptKey(service.getPublicKey());
+            byte[] decryptedPrivateKey = decryptKey(service.getPrivateKey());
+
+            // Convert decrypted byte arrays back into Key objects
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            PublicKey publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(decryptedPublicKey));
+            PrivateKey privateKey = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(decryptedPrivateKey));
+
+            return new KeyPair(publicKey, privateKey);
+        }
+        throw new IllegalArgumentException("Service not found: " + serviceId);
+    }
+
+    // Encrypt the key using AES
+    private byte[] encryptKey(byte[] key) throws GeneralSecurityException {
+        SecretKeySpec secretKey = new SecretKeySpec(SECRET_KEY.getBytes(), AES);
+        Cipher cipher = Cipher.getInstance(AES);
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+        return cipher.doFinal(key);
+    }
+
+    // Decrypt the key using AES
+    private byte[] decryptKey(byte[] encryptedKey) throws GeneralSecurityException {
+        SecretKeySpec secretKey = new SecretKeySpec(SECRET_KEY.getBytes(), AES);
+        Cipher cipher = Cipher.getInstance(AES);
+        cipher.init(Cipher.DECRYPT_MODE, secretKey);
+        return cipher.doFinal(encryptedKey);
     }
 }

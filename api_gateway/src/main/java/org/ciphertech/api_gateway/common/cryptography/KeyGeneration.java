@@ -1,4 +1,4 @@
-package org.ciphertech.api_gateway.services.vote_authority_service.cryptography;
+package org.ciphertech.api_gateway.common.cryptography;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 

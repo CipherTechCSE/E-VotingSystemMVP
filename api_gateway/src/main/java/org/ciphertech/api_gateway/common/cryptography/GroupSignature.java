@@ -1,4 +1,4 @@
-package org.ciphertech.api_gateway.services.vote_authority_service.cryptography;
+package org.ciphertech.api_gateway.common.cryptography;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.springframework.stereotype.Component;
@@ -9,15 +9,18 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
-@Component
 public class GroupSignature {
+
+    private static final int masterKeySize = 4096;  // Master key size
+    private static final String ALGORITHM = "RSA";  // Algorithm for key generation
+    private static final String SIGNATURE_ALGORITHM = "SHA256withRSA";  // Signature algorithm
 
     static {
         Security.addProvider(new BouncyCastleProvider());
     }
-
     // Master key pair (used for generating voter keys and revealing identity)
     private final KeyPair masterKeyPair;
+    private final int RSA_KEY_SIZE;  // RSA key length for voters
 
     // Map to store each voter's signing keys (public and private)
     private final Map<String, KeyPair> voterKeys = new HashMap<>();
@@ -25,17 +28,23 @@ public class GroupSignature {
     // Group public key (used for verification, derived from individual public keys or a simple one)
     private PublicKey groupPublicKey;
 
-    public GroupSignature() throws NoSuchAlgorithmException {
+    public GroupSignature(int keySize) {
         // Generate the master key pair (4096 bits for higher security)
         this.masterKeyPair = generateMasterKeyPair();
         this.groupPublicKey = null;
+        this.RSA_KEY_SIZE = keySize;
     }
 
     // Generates the master RSA key pair
-    private static KeyPair generateMasterKeyPair() throws NoSuchAlgorithmException {
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-        keyPairGenerator.initialize(4096); // Larger size for the master key
-        return keyPairGenerator.generateKeyPair();
+    private static KeyPair generateMasterKeyPair() {
+        try {
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(ALGORITHM);
+            keyPairGenerator.initialize(masterKeySize);
+            return keyPairGenerator.generateKeyPair();
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     // Generates an RSA key pair for a voter and adds them to the voter group
@@ -48,8 +57,8 @@ public class GroupSignature {
 
     // Generates a voter's RSA key pair (individual signing keys)
     private KeyPair generateVoterKeyPair() throws NoSuchAlgorithmException {
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-        keyPairGenerator.initialize(2048);  // Standard RSA size for voters
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(ALGORITHM);
+        keyPairGenerator.initialize(RSA_KEY_SIZE);
         return keyPairGenerator.generateKeyPair();
     }
 
@@ -69,7 +78,7 @@ public class GroupSignature {
 
     // Voter signs data using their private key
     public static byte[] signData(byte[] data, PrivateKey privateKey) throws GeneralSecurityException {
-        Signature signature = Signature.getInstance("SHA256withRSA");
+        Signature signature = Signature.getInstance(SIGNATURE_ALGORITHM);
         signature.initSign(privateKey);
         signature.update(data);
         return signature.sign();
@@ -80,17 +89,17 @@ public class GroupSignature {
         if (groupPublicKey == null) {
             throw new IllegalStateException("Group public key is not initialized.");
         }
-        Signature signature = Signature.getInstance("SHA256withRSA");
+        Signature signature = Signature.getInstance(SIGNATURE_ALGORITHM);
         signature.initVerify(groupPublicKey);
         signature.update(data);
         return signature.verify(signatureBytes);
     }
 
     // Reveals the voter's identity by checking which voter's public key matches the signature
-    public String revealVoterIdentity(byte[] signedData, byte[] signatureBytes) throws GeneralSecurityException {
+    private String revealVoterIdentity(byte[] signedData, byte[] signatureBytes) throws GeneralSecurityException {
         for (Map.Entry<String, KeyPair> voterEntry : voterKeys.entrySet()) {
             PublicKey publicKey = voterEntry.getValue().getPublic();
-            Signature signature = Signature.getInstance("SHA256withRSA");
+            Signature signature = Signature.getInstance(SIGNATURE_ALGORITHM);
             signature.initVerify(publicKey);
             signature.update(signedData);
 
@@ -99,23 +108,5 @@ public class GroupSignature {
             }
         }
         throw new IllegalArgumentException("Voter identity could not be revealed.");
-    }
-
-    // Encrypt the voter's identity using the master private key for identity reveal later
-    public String encryptVoterIdentity(String voterId) throws GeneralSecurityException {
-        PrivateKey masterPrivateKey = masterKeyPair.getPrivate();
-        Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.ENCRYPT_MODE, masterPrivateKey);
-        byte[] encryptedVoterId = cipher.doFinal(voterId.getBytes());
-        return Base64.getEncoder().encodeToString(encryptedVoterId);
-    }
-
-    // Decrypt to reveal voter's identity using the master public key
-    public String decryptVoterIdentity(String encryptedVoterId) throws GeneralSecurityException {
-        PublicKey masterPublicKey = masterKeyPair.getPublic();
-        Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.DECRYPT_MODE, masterPublicKey);
-        byte[] decryptedData = cipher.doFinal(Base64.getDecoder().decode(encryptedVoterId));
-        return new String(decryptedData);
     }
 }
