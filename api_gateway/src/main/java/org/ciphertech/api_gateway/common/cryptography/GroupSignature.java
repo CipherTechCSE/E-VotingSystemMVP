@@ -1,4 +1,4 @@
-package org.ciphertech.api_gateway.services.vote_authority_service.cryptography;
+package org.ciphertech.api_gateway.common.cryptography;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.springframework.stereotype.Component;
@@ -87,7 +87,7 @@ public class GroupSignature {
     }
 
     // Reveals the voter's identity by checking which voter's public key matches the signature
-    public String revealVoterIdentity(byte[] signedData, byte[] signatureBytes) throws GeneralSecurityException {
+    private String revealVoterIdentity(byte[] signedData, byte[] signatureBytes) throws GeneralSecurityException {
         for (Map.Entry<String, KeyPair> voterEntry : voterKeys.entrySet()) {
             PublicKey publicKey = voterEntry.getValue().getPublic();
             Signature signature = Signature.getInstance("SHA256withRSA");
@@ -99,23 +99,5 @@ public class GroupSignature {
             }
         }
         throw new IllegalArgumentException("Voter identity could not be revealed.");
-    }
-
-    // Encrypt the voter's identity using the master private key for identity reveal later
-    public String encryptVoterIdentity(String voterId) throws GeneralSecurityException {
-        PrivateKey masterPrivateKey = masterKeyPair.getPrivate();
-        Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.ENCRYPT_MODE, masterPrivateKey);
-        byte[] encryptedVoterId = cipher.doFinal(voterId.getBytes());
-        return Base64.getEncoder().encodeToString(encryptedVoterId);
-    }
-
-    // Decrypt to reveal voter's identity using the master public key
-    public String decryptVoterIdentity(String encryptedVoterId) throws GeneralSecurityException {
-        PublicKey masterPublicKey = masterKeyPair.getPublic();
-        Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.DECRYPT_MODE, masterPublicKey);
-        byte[] decryptedData = cipher.doFinal(Base64.getDecoder().decode(encryptedVoterId));
-        return new String(decryptedData);
     }
 }
