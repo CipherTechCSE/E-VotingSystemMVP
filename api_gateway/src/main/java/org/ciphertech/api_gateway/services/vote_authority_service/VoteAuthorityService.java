@@ -19,7 +19,7 @@ import java.util.Base64;
 @Service
 public class VoteAuthorityService {
 
-    private final String SECRET_KEY = "A7uaf9afyyahyOYG6T87h";
+    private final String SECRET_KEY = "1234567890123456";
     private static final String AES = "AES"; // AES algorithm
 
     private final ElectionRepository electionRepository;
@@ -57,8 +57,7 @@ public class VoteAuthorityService {
             CandidateRepository candidateRepository,
             BallotRepository ballotRepository,
             ServiceRepository serviceRepository,
-            VoterRepository voterRepository,
-            GroupSignature groupSignature  // Autowired bean
+            VoterRepository voterRepository
     ) {
         this.electionRepository = electionRepository;
         this.candidateRepository = candidateRepository;
@@ -66,7 +65,7 @@ public class VoteAuthorityService {
         this.serviceRepository = serviceRepository;
         this.voterRepository = voterRepository;
         this.multiSignature = new MultiSignature(2048);
-        this.groupSignature = groupSignature;
+        this.groupSignature = new GroupSignature(2048);
 
         if (multiSignature == null) {
             throw new IllegalStateException("MultiSignature bean not found!");
@@ -79,6 +78,9 @@ public class VoteAuthorityService {
                     "Service responsible for managing elections",
                     "http://localhost:8080"
             );
+
+            service.setPrivateKey(encryptKey(service.getPrivateKey())); // Encrypt the private key
+            service.setPublicKey(encryptKey(service.getPublicKey()));  // Encrypt the public key
 
             // Store
             serviceRepository.save(service);
@@ -210,7 +212,7 @@ public class VoteAuthorityService {
     }
 
     // Generate group keys for a single eligible voter and store them
-    public KeyPair joinVoterGroup(User user, Long electionId) throws NoSuchAlgorithmException {
+    public KeyPair joinVoterGroup(User user, Long electionId) throws NoSuchAlgorithmException, GeneralSecurityException {
         KeyPair voterKeyPair = groupSignature.joinVotersGroup(user.getId().toString()); // Generate a key pair for the voter
         String publicKey = Base64.getEncoder().encodeToString(voterKeyPair.getPublic().getEncoded()); // Encode the public key
 
@@ -248,12 +250,23 @@ public class VoteAuthorityService {
         // Create a new Service with multi-signature and store the service keys
         VotingSystemService service = multiSignature.getServiceKeys(serviceId,serviceName, serviceDescription, serviceUrl);
 
+        // Encrypt the service keys
+        service.setPrivateKey(encryptKey(service.getPrivateKey()));
+        service.setPublicKey(encryptKey(service.getPublicKey()));
+
         // Save the service to the database
         return serviceRepository.save(service);
     }
 
+    // Notify the vote count service
+
+    public String notifyVoteCount() {
+        // Logic to notify the vote count service
+        return "Vote count service notified!";
+    }
+
     // Retrieve service keys based on the service ID
-    public KeyPair retrieveServiceKeys(Long serviceId) throws GeneralSecurityException {
+    private KeyPair retrieveServiceKeys(Long serviceId) throws GeneralSecurityException {
         VotingSystemService service = serviceRepository.findById(serviceId).orElse(null);
 
         if (service != null) {
@@ -268,12 +281,6 @@ public class VoteAuthorityService {
             return new KeyPair(publicKey, privateKey);
         }
         throw new IllegalArgumentException("Service not found: " + serviceId);
-    }
-
-    // Notify the vote count service
-    public String notifyVoteCount() {
-        // Logic to notify the vote count service
-        return "Vote count service notified!";
     }
 
     // Encrypt the key using AES
