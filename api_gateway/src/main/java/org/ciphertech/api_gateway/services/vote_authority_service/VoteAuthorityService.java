@@ -1,18 +1,18 @@
 package org.ciphertech.api_gateway.services.vote_authority_service;
 
 import org.ciphertech.api_gateway.services.auth_service.models.User;
-import org.ciphertech.api_gateway.services.vote_authority_service.cryptography.Signature;
-import org.ciphertech.api_gateway.services.vote_authority_service.entity.Ballot;
-import org.ciphertech.api_gateway.services.vote_authority_service.entity.Candidate;
-import org.ciphertech.api_gateway.services.vote_authority_service.entity.Election;
-import org.ciphertech.api_gateway.services.vote_authority_service.entity.Voter;
-import org.ciphertech.api_gateway.services.vote_authority_service.repository.BallotRepository;
-import org.ciphertech.api_gateway.services.vote_authority_service.repository.CandidateRepository;
-import org.ciphertech.api_gateway.services.vote_authority_service.repository.ElectionRepository;
+import org.ciphertech.api_gateway.services.vote_authority_service.cryptography.GroupSignature;
+import org.ciphertech.api_gateway.services.vote_authority_service.cryptography.MultiSignature;
+import org.ciphertech.api_gateway.services.vote_authority_service.entity.*;
+import org.ciphertech.api_gateway.services.vote_authority_service.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.security.GeneralSecurityException;
+import java.security.KeyPair;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.util.Base64;
 
 @Service
 public class VoteAuthorityService {
@@ -20,13 +20,65 @@ public class VoteAuthorityService {
     private final ElectionRepository electionRepository;
     private final CandidateRepository candidateRepository;
     private final BallotRepository ballotRepository;
+    private final ServiceRepository serviceRepository;
+    private final VoterRepository voterRepository;
+    private final MultiSignature multiSignature;
+    private final GroupSignature groupSignature;
+
+    private enum ServiceId {
+        VOTE_AUTHORITY_SERVICE(1),
+        AUTH_SERVICE(2),
+        VOTE_COUNT_SERVICE(3),
+        VOTE_SUBMISSION_SERVICE(4),
+        VOTE_VERIFICATION_SERVICE(5),
+        VOTE_STORAGE_SERVICE(6),
+        PUBLIC_SERVICE(7);
+
+        private final int id;
+
+        ServiceId(int id) {
+            this.id = id;
+        }
+
+        public int getId() {
+            return id;
+        }
+    }
 
     @Autowired
-    public VoteAuthorityService(ElectionRepository electionRepository, CandidateRepository candidateRepository, BallotRepository ballotRepository) {
+    public VoteAuthorityService(
+            ElectionRepository electionRepository,
+            CandidateRepository candidateRepository,
+            BallotRepository ballotRepository,
+            ServiceRepository serviceRepository,
+            VoterRepository voterRepository,
+            MultiSignature multiSignature, // Autowired bean
+            GroupSignature groupSignature  // Autowired bean
+    ) {
         this.electionRepository = electionRepository;
         this.candidateRepository = candidateRepository;
         this.ballotRepository = ballotRepository;
+        this.serviceRepository = serviceRepository;
+        this.voterRepository = voterRepository;
+        this.multiSignature = multiSignature;
+        this.groupSignature = groupSignature;
+
+        if (multiSignature == null) {
+            throw new IllegalStateException("MultiSignature bean not found!");
+        }
+        // Create a multi-signature key pair for the service
+        try {
+            multiSignature.storeServiceKeys(
+                    (long) ServiceId.VOTE_AUTHORITY_SERVICE.getId(),
+                    "Vote Authority Service",
+                    "Service responsible for managing elections",
+                    "http://localhost:8080"
+            );
+        } catch (GeneralSecurityException e) {
+            e.printStackTrace();
+        }
     }
+
 
     // Add a candidate to the election
     public Candidate addCandidate(Candidate candidate) {
@@ -91,11 +143,12 @@ public class VoteAuthorityService {
     }
 
     public Ballot requestBallot(User user, Long election) {
-                                // Validate inputs (e.g., ensure voter is eligible, etc.)
+        // Validate inputs (e.g., ensure voter is eligible, etc.)
 
         // Create a new ballot
         Ballot ballot = new Ballot();
-        Voter voter = new Voter(user);
+        Voter voter = voterRepository.findByUserId(user.getId())
+            .orElseThrow(() -> new IllegalArgumentException("Voter not found with user id: " + user.getId()));
 
         // Set the voter and election
         ballot.setVoter(voter);
@@ -109,10 +162,15 @@ public class VoteAuthorityService {
         return ballotRepository.save(ballot);
     }
 
-    public Ballot signBallot(Ballot ballot) {
+    public Ballot signBallot(Ballot ballot) throws Exception {
         // Sign the ballot
-        Signature signatureService = new Signature();
-        ballot = signatureService.signBallot(ballot);
+        // Get the ballot content and convert it into a byte stream
+        byte[] ballotContent = ballot.getBallotContent();
+
+        // Get the multi signature
+        String multiSignature = this.multiSignature.signData((long) ServiceId.VOTE_AUTHORITY_SERVICE.getId(), ballotContent);
+
+        ballot.addMultiSignature(multiSignature);
 
         return ballot;
     }
@@ -138,10 +196,18 @@ public class VoteAuthorityService {
         return "Election ended!";
     }
 
-    // Generate group keys for eligible voters
-    public String generateGroupKey() {
-        // Logic for group key generation
-        return "Group key generated for eligible voters!";
+    // Generate group keys for a single eligible voter and store them
+    public KeyPair joinVoterGroup(User user, Long electionId) throws NoSuchAlgorithmException {
+        KeyPair voterKeyPair = groupSignature.joinVotersGroup(user.getId().toString()); // Generate a key pair for the voter
+        String publicKey = Base64.getEncoder().encodeToString(voterKeyPair.getPublic().getEncoded()); // Encode the public key
+
+        // Create a new Voter entity
+        Voter voter = new Voter(user);
+        voter.setPublicKey(publicKey);
+
+        voterRepository.save(voter); // Save the voter entity to the database
+
+        return voterKeyPair;  // Return the key pair of the voter
     }
 
     // Generate secret key for vote encryption
@@ -150,10 +216,24 @@ public class VoteAuthorityService {
         return "Secret key generated for vote encryption!";
     }
 
-    // Sign a ballot to authenticate
-    public String signBallot(String ballot) {
-        // Logic for signing a ballot
-        return "Ballot signed!";
+    // Allow a service to join and return the multi-signature for that service
+    public VotingSystemService joinService(String serviceName, String serviceUrl, String serviceDescription) throws GeneralSecurityException {
+        // Validate the service name
+        if (serviceName == null || serviceName.isEmpty()) {
+            throw new IllegalArgumentException("Service name cannot be empty.");
+        }
+
+        long serviceId;
+
+        // Ensure the service name is one of the predefined values
+        try {
+            serviceId = (long) ServiceId.valueOf(serviceName.toUpperCase()).getId();
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid service name: " + serviceName);
+        }
+
+        // Create a new Service with multi-signature and store the service keys
+        return multiSignature.storeServiceKeys(serviceId,serviceName, serviceDescription, serviceUrl);
     }
 
     // Notify the vote count service

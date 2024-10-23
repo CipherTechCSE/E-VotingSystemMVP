@@ -6,12 +6,15 @@ import org.ciphertech.api_gateway.services.vote_authority_service.VoteAuthorityS
 import org.ciphertech.api_gateway.services.vote_authority_service.entity.Ballot;
 import org.ciphertech.api_gateway.services.vote_authority_service.entity.Candidate;
 import org.ciphertech.api_gateway.services.vote_authority_service.entity.Election;
+import org.ciphertech.api_gateway.services.vote_authority_service.entity.VotingSystemService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import java.security.KeyPair;
 
 @RestController
 @RequestMapping("/api/authority")
@@ -136,16 +139,32 @@ public class VoteAuthorityController {
     }
 
     // Generate group key for eligible voters
-    @PostMapping("/generate-group-key")
-    public ResponseEntity<AuthorityResponse<Candidate>> generateGroupKey() {
+    @PostMapping("/join-voters-group/{electionID}")
+    public ResponseEntity<AuthorityResponse<KeyPair>> generateGroupKey(@PathVariable Long electionID) {
         try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            User user = (User) authentication.getPrincipal();
             // Call the service method to generate the group key
-            String message = voteAuthorityService.generateGroupKey();
+            KeyPair keyPair = voteAuthorityService.joinVoterGroup(user, electionID);
 
-            AuthorityResponse<Candidate> response = new AuthorityResponse<>(message, null);
+            AuthorityResponse<KeyPair> response = new AuthorityResponse<>("Group key generated successfully", keyPair);
             return new ResponseEntity<>(response, HttpStatus.OK);
-        } catch (IllegalArgumentException e) {
-            AuthorityResponse<Candidate> response = new AuthorityResponse<>("Error generating group key: " + e.getMessage(), null);
+        } catch (Exception e) {
+            AuthorityResponse<KeyPair> response = new AuthorityResponse<>("Error generating group key: " + e.getMessage(), null);
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @PostMapping("/join-service")
+    public ResponseEntity<AuthorityResponse<VotingSystemService>> joinService(@RequestBody String serviceName, @RequestBody String serviceUrl, @RequestBody String serviceDescription) {
+        try {
+            // Call the service method to join the service
+            VotingSystemService savedService = voteAuthorityService.joinService(serviceName, serviceUrl, serviceDescription);
+
+            AuthorityResponse<VotingSystemService> response = new AuthorityResponse<>("Service joined successfully", savedService);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception e) {
+            AuthorityResponse<VotingSystemService> response = new AuthorityResponse<>("Error joining service: " + e.getMessage(), null);
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
     }
@@ -193,7 +212,7 @@ public class VoteAuthorityController {
             AuthorityResponse<Ballot> response = new AuthorityResponse<>("Ballot signed successfully", signedBallot);
             return new ResponseEntity<>(response, HttpStatus.OK);
 
-        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
             AuthorityResponse<Ballot> response = new AuthorityResponse<>("Error signing ballot: " + e.getMessage(), null);
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }

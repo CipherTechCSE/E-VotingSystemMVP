@@ -88,6 +88,10 @@ public class Ballot {
         this.multiSignatures = multiSignatures;
     }
 
+    public void addMultiSignature(String multiSignature) {
+        this.multiSignatures.add(multiSignature);
+    }
+
     public LocalDateTime getSubmittedAt() {
         return submittedAt;
     }
@@ -110,5 +114,9 @@ public class Ballot {
 
     public void setElection(Election election) {
         this.election = election;
+    }
+
+    public byte[] getBallotContent() {
+        return (this.encryptedVote + this.issuedAt.toString()).getBytes();
     }
 }
