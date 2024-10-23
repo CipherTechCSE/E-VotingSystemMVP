@@ -30,7 +30,6 @@ public class Election {
     @OneToMany(mappedBy = "election", cascade = CascadeType.ALL)
     private List<Voter> voters;
 
-
     // Constructors, getters, setters
     public Election() {
     }
@@ -45,10 +44,6 @@ public class Election {
     // Getters and setters
     public Long getId() {
         return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getElectionName() {

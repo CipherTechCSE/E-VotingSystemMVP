@@ -1,12 +1,16 @@
 package org.ciphertech.api_gateway.controller;
 
 import org.ciphertech.api_gateway.dto.authority.AuthorityResponse;
+import org.ciphertech.api_gateway.services.auth_service.models.User;
 import org.ciphertech.api_gateway.services.vote_authority_service.VoteAuthorityService;
+import org.ciphertech.api_gateway.services.vote_authority_service.entity.Ballot;
 import org.ciphertech.api_gateway.services.vote_authority_service.entity.Candidate;
 import org.ciphertech.api_gateway.services.vote_authority_service.entity.Election;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -41,7 +45,7 @@ public class VoteAuthorityController {
 
     // Update an Election
     @PutMapping("/election/{id}")
-    public ResponseEntity<AuthorityResponse<Election>> updateElection(@RequestBody Election election, @PathVariable Integer id) {
+    public ResponseEntity<AuthorityResponse<Election>> updateElection(@RequestBody Election election, @PathVariable Long id) {
         try {
             // Call the service method to update the election
             Election updatedElection = voteAuthorityService.updateElection(election, id);
@@ -56,7 +60,7 @@ public class VoteAuthorityController {
 
     // Delete an Election
     @DeleteMapping("/election/{id}")
-    public ResponseEntity<AuthorityResponse<Candidate>> deleteElection(@PathVariable Integer id) {
+    public ResponseEntity<AuthorityResponse<Candidate>> deleteElection(@PathVariable Long id) {
         try {
             // Call the service method to delete the election
             if (voteAuthorityService.deleteElection(id))
@@ -87,7 +91,7 @@ public class VoteAuthorityController {
 
     // Delete a Candidate from an Election
     @DeleteMapping("/candidate/{id}")
-    public ResponseEntity<AuthorityResponse<Candidate>> deleteCandidate(@PathVariable Integer id) {
+    public ResponseEntity<AuthorityResponse<Candidate>> deleteCandidate(@PathVariable Long id) {
         try {
             // Call the service method to delete the candidate
             if (voteAuthorityService.deleteCandidate(id))
@@ -161,17 +165,51 @@ public class VoteAuthorityController {
         }
     }
 
-    // Sign a ballot
-    @PostMapping("/sign-ballot")
-    public ResponseEntity<AuthorityResponse<Candidate>> signBallot(@RequestBody String ballot) {
+    @GetMapping("/requestBallot/{electionID}")
+    public ResponseEntity<AuthorityResponse<Ballot>> requestBallot(@PathVariable Long electionID) {
         try {
-            // Call the service method to sign the ballot
-            String message = voteAuthorityService.signBallot(ballot);
 
-            AuthorityResponse<Candidate> response = new AuthorityResponse<>(message, null);
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            User user = (User) authentication.getPrincipal();
+
+            // Call the service method to generate the secret key
+            Ballot ballot = voteAuthorityService.requestBallot(user, electionID);
+
+            AuthorityResponse<Ballot> response = new AuthorityResponse<>("Ballot generated successfully", ballot);
             return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (IllegalArgumentException e) {
-            AuthorityResponse<Candidate> response = new AuthorityResponse<>("Error signing ballot: " + e.getMessage(), null);
+            AuthorityResponse<Ballot> response = new AuthorityResponse<>("Error generating ballot: " + e.getMessage(), null);
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    // Sign a ballot
+    @PostMapping("/sign-ballot")
+    public ResponseEntity<AuthorityResponse<Ballot>> signBallot(@RequestBody Ballot ballot) {
+        try {
+            // Call the service method to sign the ballot
+            Ballot signedBallot = voteAuthorityService.signBallot(ballot);
+
+            AuthorityResponse<Ballot> response = new AuthorityResponse<>("Ballot signed successfully", signedBallot);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+
+        } catch (IllegalArgumentException e) {
+            AuthorityResponse<Ballot> response = new AuthorityResponse<>("Error signing ballot: " + e.getMessage(), null);
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    // Called by Vote submission service to confirm ballot submission
+    @PostMapping("/internal/confirm-ballot-submission/{id}")
+    public ResponseEntity<AuthorityResponse<Ballot>> confirmBallotSubmission(@PathVariable Long id) {
+        try {
+            // Call the service method to confirm the ballot submission
+            Boolean confirmed = voteAuthorityService.confirmBallotSubmission(id);
+
+            AuthorityResponse<Ballot> response = new AuthorityResponse<>(confirmed ? "Ballot submitted successfully" : "Error submitting ballot", null);
+            return new ResponseEntity<>(response, confirmed ? HttpStatus.OK : HttpStatus.BAD_REQUEST);
+        } catch (IllegalArgumentException e) {
+            AuthorityResponse<Ballot> response = new AuthorityResponse<>("Error submitting ballot: " + e.getMessage(), null);
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
     }

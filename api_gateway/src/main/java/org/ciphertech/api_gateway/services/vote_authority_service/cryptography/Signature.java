@@ -1,9 +1,8 @@
-package org.ciphertech.api_gateway.services.vote_authority_service.signatures;
+package org.ciphertech.api_gateway.services.vote_authority_service.cryptography;
 
-import org.springframework.stereotype.Service;
+import org.ciphertech.api_gateway.services.vote_authority_service.entity.Ballot;
 
-@Service
-public class SignatureService {
+public class Signature {
 
     public String signBallot(String ballot, String privateKey) {
         return CryptoUtils.signData(ballot, privateKey);
@@ -11,5 +10,11 @@ public class SignatureService {
 
     public boolean verifySignature(String ballot, String signature, String publicKey) {
         return CryptoUtils.verifySignature(ballot, signature, publicKey);
+    }
+
+    public Ballot signBallot(Ballot ballot) {
+        // Sign the ballot
+
+        return ballot;
     }
 }

@@ -11,6 +11,8 @@ public class SecretKey {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private String type;
+
     @Lob
     private String encryptedSecretKey; // Encrypted secret key used for vote encryption
 
