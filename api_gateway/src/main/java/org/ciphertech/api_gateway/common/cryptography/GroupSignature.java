@@ -1,9 +1,9 @@
 package org.ciphertech.api_gateway.common.cryptography;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
+import java.math.BigInteger;
 import java.security.*;
 import java.util.Base64;
 import java.util.HashMap;
@@ -18,6 +18,7 @@ public class GroupSignature {
     static {
         Security.addProvider(new BouncyCastleProvider());
     }
+
     // Master key pair (used for generating voter keys and revealing identity)
     private final KeyPair masterKeyPair;
     private final int RSA_KEY_SIZE;  // RSA key length for voters
@@ -77,6 +78,15 @@ public class GroupSignature {
     }
 
     // Voter signs data using their private key
+    public byte[] signData(String voterId, byte[] data) throws GeneralSecurityException {
+        KeyPair voterKeyPair = voterKeys.get(voterId);
+        if (voterKeyPair == null) {
+            throw new IllegalArgumentException("Voter not found.");
+        }
+        return signData(data, voterKeyPair.getPrivate());
+    }
+
+    // Voter signs data using their private key
     public static byte[] signData(byte[] data, PrivateKey privateKey) throws GeneralSecurityException {
         Signature signature = Signature.getInstance(SIGNATURE_ALGORITHM);
         signature.initSign(privateKey);
@@ -108,5 +118,67 @@ public class GroupSignature {
             }
         }
         throw new IllegalArgumentException("Voter identity could not be revealed.");
+    }
+
+    // Method to generate a signature of knowledge
+    public SignatureOfKnowledge signKnowledge(String voterId, String message) throws GeneralSecurityException {
+        KeyPair voterKeyPair = voterKeys.get(voterId);
+        if (voterKeyPair == null) {
+            throw new IllegalArgumentException("Voter not found.");
+        }
+
+        // Compute r and c
+        SecureRandom random = new SecureRandom();
+        byte[] r = new byte[256];
+        random.nextBytes(r); // Generate random bytes for r
+        byte[] y = voterKeyPair.getPublic().getEncoded(); // Simplified, should use a proper representation
+
+        // Compute c = H(m || y || g || g^r)
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update(message.getBytes());
+        digest.update(y);
+        // g and g^r are placeholder, replace with actual values
+        digest.update("g".getBytes()); // Placeholder for g
+        digest.update(r); // Use r directly
+        byte[] c = digest.digest();
+
+        // Compute s = r - cx mod n (use appropriate modulus, simplified here)
+        BigInteger cx = new BigInteger(c); // Convert c to BigInteger
+        BigInteger rValue = new BigInteger(r); // Convert r to BigInteger
+        BigInteger n = new BigInteger(1, voterKeyPair.getPublic().getEncoded()); // Simplified
+        BigInteger s = rValue.subtract(cx).mod(n);
+
+        return new SignatureOfKnowledge(c, s.toByteArray()); // Returning signature of knowledge
+    }
+
+    public static class SignatureOfKnowledge {
+        private final byte[] c;
+        private final byte[] s;
+
+        public SignatureOfKnowledge(byte[] c, byte[] s) {
+            this.c = c;
+            this.s = s;
+        }
+
+        public byte[] getC() {
+            return c;
+        }
+
+        public byte[] getS() {
+            return s;
+        }
+    }
+
+    // Verify signature of knowledge
+    public boolean verifySignatureOfKnowledge(String message, SignatureOfKnowledge signature, PublicKey publicKey) throws GeneralSecurityException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update(message.getBytes());
+        byte[] y = publicKey.getEncoded(); // Public key encoded for hash
+        // g and g^s are placeholder, replace with actual values
+        digest.update("g".getBytes()); // Placeholder for g
+        digest.update(signature.getS()); // Use s from the signature
+        byte[] cPrime = digest.digest();
+
+        return MessageDigest.isEqual(signature.getC(), cPrime); // Compare computed c' with c
     }
 }
