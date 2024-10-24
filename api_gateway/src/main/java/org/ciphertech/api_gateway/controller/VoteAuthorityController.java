@@ -15,6 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.KeyPair;
+import java.security.PublicKey;
 
 @RestController
 @RequestMapping("/api/authority")
@@ -156,10 +157,10 @@ public class VoteAuthorityController {
     }
 
     @PostMapping("/join-service")
-    public ResponseEntity<AuthorityResponse<VotingSystemService>> joinService(@RequestBody String serviceName, @RequestBody String serviceUrl, @RequestBody String serviceDescription) {
+    public ResponseEntity<AuthorityResponse<VotingSystemService>> joinService(@RequestBody String serviceName, @RequestBody String serviceUrl, @RequestBody String serviceDescription, @RequestBody PublicKey publicKey) {
         try {
             // Call the service method to join the service
-            VotingSystemService savedService = voteAuthorityService.joinService(serviceName, serviceUrl, serviceDescription);
+            VotingSystemService savedService = voteAuthorityService.joinService(serviceName, serviceUrl, serviceDescription, publicKey);
 
             AuthorityResponse<VotingSystemService> response = new AuthorityResponse<>("Service joined successfully", savedService);
             return new ResponseEntity<>(response, HttpStatus.OK);

@@ -26,21 +26,6 @@ public class MultiSignature {
         this.RSA_KEY_SIZE = keySize;
     }
 
-    // Store service keys and return the created Service object
-    public VotingSystemService getServiceKeys(Long serviceId, String serviceName, String description, String url) throws GeneralSecurityException {
-        KeyPair keyPair = generateKeyPair();
-
-        VotingSystemService service = new VotingSystemService();
-        service.setId(serviceId);
-        service.setName(serviceName);
-        service.setDescription(description);
-        service.setUrl(url);
-        service.setPublicKey(keyPair.getPublic().getEncoded());
-        service.setPrivateKey(keyPair.getPrivate().getEncoded());
-
-        return service;
-    }
-
     // Generate a new RSA key pair with a key length of 2048 bits
     public KeyPair generateKeyPair() throws NoSuchAlgorithmException {
         KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(ALGORITHM);
@@ -50,8 +35,7 @@ public class MultiSignature {
     }
 
     // Sign the data using the service's private key
-    public String signData(Long serviceId, byte[] data, KeyPair keyPair) throws Exception {
-        PrivateKey privateKey = keyPair.getPrivate();
+    public String signData(Long serviceId, byte[] data, PrivateKey privateKey) throws Exception {
 
         Signature signature = Signature.getInstance(SIGNATURE_ALGORITHM);
         signature.initSign(privateKey);
@@ -61,8 +45,7 @@ public class MultiSignature {
     }
 
     // Verify the signature using the service's public key
-    public boolean verifySignature(Long serviceId, byte[] data, String signatureStr, KeyPair keyPair) throws Exception {
-        PublicKey publicKey = keyPair.getPublic();
+    public boolean verifySignature(Long serviceId, byte[] data, String signatureStr, PublicKey publicKey) throws Exception {
 
         Signature signature = Signature.getInstance(SIGNATURE_ALGORITHM);
         signature.initVerify(publicKey);
