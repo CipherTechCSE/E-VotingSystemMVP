@@ -3,6 +3,7 @@ package org.ciphertech.api_gateway.services.auth_service;
 import org.ciphertech.api_gateway.dto.auth.LoginRequest;
 import org.ciphertech.api_gateway.dto.auth.LogoutRequest;
 import org.ciphertech.api_gateway.dto.auth.RegisterRequest;
+import org.ciphertech.api_gateway.dto.auth.AuthResponse;
 import org.ciphertech.api_gateway.dto.auth.*;
 import org.ciphertech.api_gateway.services.auth_service.repositories.UserRepository;
 import org.ciphertech.api_gateway.services.auth_service.utils.JwtUtil;
@@ -36,7 +37,7 @@ public class AuthService {
     }
 
     // Example method to login users (this can include more logic, like fetching user from a database)
-    public String login(LoginRequest loginRequest) {
+    public AuthResponse login(LoginRequest loginRequest) {
         // For demonstration, let's assume loginRequest contains username and password
 
         // In a real-world scenario, you would fetch the user details from a database
@@ -45,10 +46,15 @@ public class AuthService {
         // Check if the provided password matches the stored password hash
         if (passwordEncoder.matches(loginRequest.getPassword(), storedPasswordHash)) {
             // Generate and return JWT token upon successful login
-            return jwtUtil.generateToken(loginRequest.getUsername(), "USER_ROLE");
+//            return jwtUtil.generateToken(loginRequest.getUsername(), "USER_ROLE");
+           String username = loginRequest.getUsername();
+           String role = "USER_ROLE";
+            String token= jwtUtil.generateToken(username, role);
+          AuthResponse auth = new AuthResponse(token);
+          return auth;
         } else {
-            return "Invalid credentials";
-        }
+//            return "Invalid credentials";
+            return null; }
     }
 
     // Updated method to register users

@@ -1,5 +1,6 @@
 package org.ciphertech.api_gateway.controller;
 
+import org.ciphertech.api_gateway.dto.auth.AuthResponse;
 import org.ciphertech.api_gateway.dto.auth.LogoutRequest;
 import org.ciphertech.api_gateway.dto.auth.RegisterRequest;
 import org.ciphertech.api_gateway.services.auth_service.AuthService;
@@ -20,7 +21,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public String login(@RequestBody LoginRequest loginRequest) {
+    public AuthResponse login(@RequestBody LoginRequest loginRequest) {
         return authService.login(loginRequest);
     }
 
