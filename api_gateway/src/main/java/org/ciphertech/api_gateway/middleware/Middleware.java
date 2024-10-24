@@ -1,9 +1,13 @@
 package org.ciphertech.api_gateway.middleware;
 
-import org.ciphertech.api_gateway.services.auth_service.AuthService;
+import org.ciphertech.api_gateway.services.auth_service.models.User;
+import org.ciphertech.api_gateway.services.auth_service.repositories.UserRepository;
 import org.ciphertech.api_gateway.services.auth_service.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import jakarta.servlet.Filter;
@@ -21,9 +25,8 @@ import java.util.Set;
 @Component
 public class Middleware implements Filter {
 
-    private final AuthService authService;
     private final JwtUtil jwtUtil;
-
+    private final UserRepository userRepository;
     private static final Set<String> PUBLIC_ROUTES = Set.of(
             "/public/login",
             "/public/register",
@@ -33,9 +36,9 @@ public class Middleware implements Filter {
     );
 
     @Autowired
-    public Middleware(AuthService authService, JwtUtil jwtUtil) {
-        this.authService = authService;
+    public Middleware(JwtUtil jwtUtil , UserRepository userRepository) {
         this.jwtUtil = jwtUtil;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -62,31 +65,23 @@ public class Middleware implements Filter {
             return;
         }
 
-        token = token.substring(7);
+        token = token.substring(7);  // Remove "Bearer " from token
         String username = jwtUtil.extractUsername(token);
 
-        if (!jwtUtil.validateToken(token, username)) {
+        if (username != null && jwtUtil.validateToken(token, username)) {
+            // Load user details (optional step)
+            User userDetails = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + username));
+
+            // Set the authentication in the security context
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+        } else {
             httpResponse.setContentType("application/json");
             httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             httpResponse.getWriter().write("{\"error\": \"Unauthorized: Invalid token\"}");
-            return;
-        }
-
-        String role = jwtUtil.extractRole(token);
-        Set<String> adminRoutes = Set.of("/admin/dashboard", "/admin/manage-users");
-        Set<String> voterRoutes = Set.of("/voter/vote", "/voter/profile");
-
-        if (adminRoutes.contains(requestURI) && !"ADMIN".equals(role)) {
-            httpResponse.setContentType("application/json");
-            httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            httpResponse.getWriter().write("{\"error\": \"Forbidden: Admin access required\"}");
-            return;
-        }
-
-        if (voterRoutes.contains(requestURI) && !"VOTER".equals(role)) {
-            httpResponse.setContentType("application/json");
-            httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            httpResponse.getWriter().write("{\"error\": \"Forbidden: Voter access required\"}");
             return;
         }
 
