@@ -15,6 +15,8 @@ import java.util.Base64;
 public class MultiSignature {
 
     private final int RSA_KEY_SIZE; // RSA key length
+    private static final String ALGORITHM = "RSA";  // Algorithm for key generation
+    private static final String SIGNATURE_ALGORITHM = "SHA256withRSA";  // Signature algorithm
 
     static {
         Security.addProvider(new BouncyCastleProvider());
@@ -41,7 +43,7 @@ public class MultiSignature {
 
     // Generate a new RSA key pair with a key length of 2048 bits
     public KeyPair generateKeyPair() throws NoSuchAlgorithmException {
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(ALGORITHM);
         keyPairGenerator.initialize(RSA_KEY_SIZE); // Set key size to 2048 bits        
         
         return keyPairGenerator.generateKeyPair();
@@ -51,7 +53,7 @@ public class MultiSignature {
     public String signData(Long serviceId, byte[] data, KeyPair keyPair) throws Exception {
         PrivateKey privateKey = keyPair.getPrivate();
 
-        Signature signature = Signature.getInstance("SHA256withRSA");
+        Signature signature = Signature.getInstance(SIGNATURE_ALGORITHM);
         signature.initSign(privateKey);
         signature.update(data);
         byte[] signedData = signature.sign();
@@ -62,7 +64,7 @@ public class MultiSignature {
     public boolean verifySignature(Long serviceId, byte[] data, String signatureStr, KeyPair keyPair) throws Exception {
         PublicKey publicKey = keyPair.getPublic();
 
-        Signature signature = Signature.getInstance("SHA256withRSA");
+        Signature signature = Signature.getInstance(SIGNATURE_ALGORITHM);
         signature.initVerify(publicKey);
         signature.update(data);
         byte[] signatureBytes = Base64.getDecoder().decode(signatureStr);
