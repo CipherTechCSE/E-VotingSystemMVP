@@ -193,7 +193,7 @@ public class VoteAuthorityService {
         PrivateKey privateKey = retrievePrivateKey();
 
         // Get the multi signature
-        String signature = multiSignature.signData(serviceId, ballotContent, privateKey);
+        String signature = multiSignature.signData(ballotContent, privateKey);
 
         ballot.addMultiSignature(signature);
 
