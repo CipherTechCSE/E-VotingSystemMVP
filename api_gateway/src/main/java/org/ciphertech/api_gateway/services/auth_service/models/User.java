@@ -22,16 +22,45 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String password;  // Store the hashed password
 
+    @Column(nullable = false, unique = true)
+    private String deviceFingerprint;
+
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Column(nullable = false, unique = true)
+    private String phoneNumber;
+
+    @Column(nullable = false)
+    private String fullName;
+
+    @Column(nullable = false)
+    private String address;
+
+    @Column(nullable = false , unique = true)
+    private String nic;
+
+    @Column(nullable = false)
+    private String salt;
+
+
     @Column(nullable = false)
     private String role;
 
     // Constructors, Getters, and Setters
     public User() {}
 
-    public User(String username, String password, String role) {
+    public User(String username, String password, String role, String deviceFingerprint, String email, String phoneNumber, String fullName, String address, String nic, String salt) {
         this.username = username;
         this.password = password;
         this.role = role;
+        this.deviceFingerprint = deviceFingerprint;
+        this.email = email;
+        this.phoneNumber = phoneNumber;
+        this.fullName = fullName;
+        this.address = address;
+        this.nic = nic;
+        this.salt = salt;
     }
 
     public Long getId() {
@@ -66,6 +95,62 @@ public class User implements UserDetails {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getDeviceFingerprint() {
+        return deviceFingerprint;
+    }
+
+    public void setDeviceFingerprint(String deviceFingerprint) {
+        this.deviceFingerprint = deviceFingerprint;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getNic() {
+        return nic;
+    }
+
+    public void setNic(String nic) {
+        this.nic = nic;
+    }
+
+    public String getSalt() {
+        return salt;
+    }
+
+    public void setSalt(String salt) {
+        this.salt = salt;
     }
 
     // Implementing UserDetails methods
