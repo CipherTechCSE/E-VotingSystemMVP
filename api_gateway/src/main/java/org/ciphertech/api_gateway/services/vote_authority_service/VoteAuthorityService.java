@@ -11,10 +11,13 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
+import java.math.BigInteger;
 import java.security.*;
 import java.security.spec.X509EncodedKeySpec;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class VoteAuthorityService {
@@ -70,7 +73,12 @@ public class VoteAuthorityService {
         this.voterRepository = voterRepository;
         this.privateKeyRepository = privateKeyRepository;
         this.multiSignature = new MultiSignature(2048);
-        this.groupSignature = new GroupSignature(2048);
+
+        try {
+            this.groupSignature = new GroupSignature(2048);
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+            throw new IllegalStateException("Error initializing group signature: " + e.getMessage());
+        }
 
         if (multiSignature == null) {
             throw new IllegalStateException("MultiSignature bean not found!");
@@ -221,18 +229,41 @@ public class VoteAuthorityService {
         return "Election ended!";
     }
 
-    // Generate group keys for a single eligible voter and store them
-    public KeyPair joinVoterGroup(User user, Long electionId) throws NoSuchAlgorithmException, GeneralSecurityException {
-        KeyPair voterKeyPair = groupSignature.joinVotersGroup(user.getId().toString()); // Generate a key pair for the voter
-        String publicKey = Base64.getEncoder().encodeToString(voterKeyPair.getPublic().getEncoded()); // Encode the public key
+    public Map<String, String> getGroupEncryptionParameters(Long electionID) {
+        Map<String, String> parameters = new HashMap<>();
+        parameters.put("n", groupSignature.getN().toString());
+        parameters.put("a", groupSignature.getA().toString());
+        parameters.put("g", groupSignature.getG().toString());
+        return parameters;
+    }
 
-        // Create a new Voter entity
+    public String requestJoinGroup(User user, Long electionID, String y) {
+
+        Integer r = groupSignature.getNonce();
+
         Voter voter = new Voter(user);
-        voter.setPublicKey(publicKey);
 
-        voterRepository.save(voter); // Save the voter entity to the database
+        voter.setTempR(r.toString());
+        voter.setTempY(y);
 
-        return voterKeyPair;  // Return the key pair of the voter
+        voterRepository.save(voter);
+        // Logic for requesting to join the group
+        return r.toString();
+    }
+
+    // Generate group keys for a single eligible voter and store them
+    public String joinVoterGroup(User user, Long electionId, Map<String, String> parameters) throws NoSuchAlgorithmException {
+
+        // Retrieve the voter entity
+        Voter voter = voterRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Voter not found with user id: " + user.getId()));
+
+        String r = voter.getTempR();
+        String y = voter.getTempY();
+
+        BigInteger certificate = groupSignature.join(new BigInteger(y), new BigInteger(r), new BigInteger(parameters.get("T")), new BigInteger(parameters.get("s")));
+
+        return certificate.toString();
     }
 
     // Generate secret key for vote encryption
