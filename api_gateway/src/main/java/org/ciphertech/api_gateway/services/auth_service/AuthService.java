@@ -4,7 +4,6 @@ import org.ciphertech.api_gateway.dto.auth.LoginRequest;
 import org.ciphertech.api_gateway.dto.auth.LogoutRequest;
 import org.ciphertech.api_gateway.dto.auth.RegisterRequest;
 import org.ciphertech.api_gateway.dto.auth.AuthResponse;
-import org.ciphertech.api_gateway.dto.auth.*;
 import org.ciphertech.api_gateway.services.auth_service.repositories.UserRepository;
 import org.ciphertech.api_gateway.services.auth_service.utils.JwtUtil;
 import org.ciphertech.api_gateway.services.auth_service.models.User;
@@ -17,14 +16,18 @@ import java.util.Optional;
 @Service
 public class AuthService {
 
-    @Autowired
-    private JwtUtil jwtUtil;
+    private final JwtUtil jwtUtil;
+
+    private final PasswordEncoder passwordEncoder;  // For password hashing
+
+    private final UserRepository userRepository;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;  // For password hashing
-
-    @Autowired
-    private UserRepository userRepository;
+    public AuthService(JwtUtil jwtUtil, PasswordEncoder passwordEncoder, UserRepository userRepository) {
+        this.jwtUtil = jwtUtil;
+        this.passwordEncoder = passwordEncoder;
+        this.userRepository = userRepository;
+    }
 
     // Example method to validate tokensLoginRequest
     public String validateToken(String token, String username) {
@@ -38,22 +41,22 @@ public class AuthService {
 
     // Example method to login users (this can include more logic, like fetching user from a database)
     public AuthResponse login(LoginRequest loginRequest) {
-        // For demonstration, let's assume loginRequest contains username and password
 
-        // In a real-world scenario, you would fetch the user details from a database
-        String storedPasswordHash = fetchPasswordHashForUser(loginRequest.getUsername());
+        String[] userCredentials = fetchPasswordHashForUser(loginRequest.getUsername());
+        if (userCredentials == null) {
+            return null; // or handle the case where user is not found
+        }
+        String storedPasswordHash = userCredentials[0];
+        String salt = userCredentials[1];
 
         // Check if the provided password matches the stored password hash
-        if (passwordEncoder.matches(loginRequest.getPassword(), storedPasswordHash)) {
-            // Generate and return JWT token upon successful login
-//            return jwtUtil.generateToken(loginRequest.getUsername(), "USER_ROLE");
-           String username = loginRequest.getUsername();
-           String role = "USER_ROLE";
+        if (passwordEncoder.matches(loginRequest.getPassword() + salt, storedPasswordHash)) {
+            String username = loginRequest.getUsername();
+            String role = "USER_ROLE";
             String token= jwtUtil.generateToken(username, role);
           AuthResponse auth = new AuthResponse(token);
           return auth;
         } else {
-//            return "Invalid credentials";
             return null; }
     }
 
@@ -65,14 +68,23 @@ public class AuthService {
             return "Username already exists";
         }
 
-        // Encrypt the user password before saving
-        String encodedPassword = passwordEncoder.encode(registerRequest.getPassword());
+        // Generate a salt and hash the user password before saving
+        String salt = jwtUtil.generateSalt(); // Assuming JwtUtil has a method to generate a salt
+        String encodedPassword = passwordEncoder.encode(registerRequest.getPassword() + salt);
 
         // Create a new user entity
-        User newUser = new User();
-        newUser.setUsername(registerRequest.getUsername());
-        newUser.setPassword(encodedPassword);
-        newUser.setRole("USER_ROLE"); // Set the default role for the new user
+        User newUser = new User(
+                registerRequest.getUsername(),
+                encodedPassword,
+                "USER_ROLE",
+                registerRequest.getDeviceFingerprint(),
+                registerRequest.getEmail(),
+                registerRequest.getPhoneNumber(),
+                registerRequest.getFullName(),
+                registerRequest.getAddress(),
+                registerRequest.getNic(),
+                salt
+        );
 
         // Save the user information in the database
         userRepository.save(newUser);
@@ -89,17 +101,15 @@ public class AuthService {
         return "Logout successful";
     }
 
-    // Helper method to fetch stored password hash
-    private String fetchPasswordHashForUser(String username) {
+    // Helper method to fetch stored password hash and salt for a given username
+    private String[] fetchPasswordHashForUser(String username) {
         // Fetch the user by username from the repository
         Optional<User> userOptional = userRepository.findByUsername(username);
 
         // Check if the user exists and return the password hash
-        if (userOptional.isPresent()) {
-            return userOptional.get().getPassword(); // Return the stored password hash
-        } else {
-            return null; // User not found, return null or handle as needed
-        }
+        // Return the stored password hash and salt
+        // User not found, return null or handle as needed
+        return userOptional.map(user -> new String[]{user.getPassword(), user.getSalt()}).orElse(null);
     }
 }
 

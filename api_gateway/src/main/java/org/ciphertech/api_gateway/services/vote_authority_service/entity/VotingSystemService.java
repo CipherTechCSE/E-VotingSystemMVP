@@ -23,10 +23,6 @@ public class VotingSystemService {
     @Column(name = "public_key", nullable = false, length = 4096)
     private byte[] publicKey;
 
-    @Lob
-    @Column(name = "private_key", nullable = false, length = 4096)
-    private byte[] privateKey;
-
     // Getters and setters
     public Long getId() {
         return id;
@@ -68,14 +64,6 @@ public class VotingSystemService {
         this.publicKey = publicKey;
     }
 
-    public byte[] getPrivateKey() {
-        return privateKey;
-    }
-
-    public void setPrivateKey(byte[] privateKey) {
-        this.privateKey = privateKey;
-    }
-
     @Override
     public String toString() {
         return "Service{" +
@@ -84,7 +72,6 @@ public class VotingSystemService {
                 ", description='" + description + '\'' +
                 ", url='" + url + '\'' +
                 ", publicKey=" + Arrays.toString(publicKey) +
-                ", privateKey=" + Arrays.toString(privateKey) +
                 '}';
     }
 }

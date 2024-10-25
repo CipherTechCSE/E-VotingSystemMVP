@@ -13,7 +13,8 @@ public class Ballot {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String encryptedVote; // Encrypted vote
+    @Transient
+    private String encryptedVote; // Encrypted vote will not be stored in the database
 
     @Lob
     private String voterSignature; // Signature for verification

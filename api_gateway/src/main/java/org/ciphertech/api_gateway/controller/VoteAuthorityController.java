@@ -15,6 +15,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.KeyPair;
+import java.security.PublicKey;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/authority")
@@ -138,28 +140,60 @@ public class VoteAuthorityController {
         }
     }
 
-    // Generate group key for eligible voters
-    @PostMapping("/join-voters-group/{electionID}")
-    public ResponseEntity<AuthorityResponse<KeyPair>> generateGroupKey(@PathVariable Long electionID) {
+    @GetMapping("/group-encryption-parameters/{electionID}")
+    public ResponseEntity<AuthorityResponse<Map<String, String>>> getGroupEncryptionParameters(@PathVariable Long electionID) {
+        try {
+            // Call the service method to get the group encryption parameters
+            Map<String, String> params = voteAuthorityService.getGroupEncryptionParameters(electionID);
+
+            AuthorityResponse<Map<String, String>> response = new AuthorityResponse<>("Group encryption parameters retrieved successfully", params);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception e) {
+            AuthorityResponse<Map<String, String>> response = new AuthorityResponse<>("Error retrieving group encryption parameters: " + e.getMessage(), null);
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @PostMapping("/request-join-group/{electionID}")
+    public ResponseEntity<AuthorityResponse<String>> requestJoinGroup(@PathVariable Long electionID, @RequestBody String Y) {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             User user = (User) authentication.getPrincipal();
-            // Call the service method to generate the group key
-            KeyPair keyPair = voteAuthorityService.joinVoterGroup(user, electionID);
+            // Call the service method to request joining the group
+            String nonce = voteAuthorityService.requestJoinGroup(user, electionID, Y);
 
-            AuthorityResponse<KeyPair> response = new AuthorityResponse<>("Group key generated successfully", keyPair);
+            AuthorityResponse<String> response = new AuthorityResponse<>("Request to join group sent successfully", nonce);
             return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (Exception e) {
-            AuthorityResponse<KeyPair> response = new AuthorityResponse<>("Error generating group key: " + e.getMessage(), null);
+            AuthorityResponse<String> response = new AuthorityResponse<>("Error requesting to join group: " + e.getMessage(), null);
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    // Generate group key for eligible voters
+    @PostMapping("/join-voters-group/{electionID}")
+    public ResponseEntity<AuthorityResponse<String>> generateGroupKey(@PathVariable Long electionID, @RequestBody String T, @RequestBody String S) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            User user = (User) authentication.getPrincipal();
+
+            Map<String, String> proof = Map.of("T", T, "S", S);
+            // Call the service method to generate the group key
+            String certificate = voteAuthorityService.joinVoterGroup(user, electionID, proof);
+
+            AuthorityResponse<String> response = new AuthorityResponse<>("Group key generated successfully", certificate);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception e) {
+            AuthorityResponse<String> response = new AuthorityResponse<>("Error generating group key: " + e.getMessage(), null);
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
     }
 
     @PostMapping("/join-service")
-    public ResponseEntity<AuthorityResponse<VotingSystemService>> joinService(@RequestBody String serviceName, @RequestBody String serviceUrl, @RequestBody String serviceDescription) {
+    public ResponseEntity<AuthorityResponse<VotingSystemService>> joinService(@RequestBody String serviceName, @RequestBody String serviceUrl, @RequestBody String serviceDescription, @RequestBody PublicKey publicKey) {
         try {
             // Call the service method to join the service
-            VotingSystemService savedService = voteAuthorityService.joinService(serviceName, serviceUrl, serviceDescription);
+            VotingSystemService savedService = voteAuthorityService.joinService(serviceName, serviceUrl, serviceDescription, publicKey);
 
             AuthorityResponse<VotingSystemService> response = new AuthorityResponse<>("Service joined successfully", savedService);
             return new ResponseEntity<>(response, HttpStatus.OK);

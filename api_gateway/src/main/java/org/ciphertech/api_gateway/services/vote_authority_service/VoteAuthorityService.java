@@ -4,32 +4,38 @@ import org.ciphertech.api_gateway.services.auth_service.models.User;
 import org.ciphertech.api_gateway.common.cryptography.GroupSignature;
 import org.ciphertech.api_gateway.common.cryptography.MultiSignature;
 import org.ciphertech.api_gateway.services.vote_authority_service.entity.*;
+import org.ciphertech.api_gateway.services.vote_authority_service.entity.PrivateKeyEntity;
 import org.ciphertech.api_gateway.services.vote_authority_service.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
+import java.math.BigInteger;
 import java.security.*;
-import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class VoteAuthorityService {
 
     private final String SECRET_KEY = "1234567890123456";
     private static final String AES = "AES"; // AES algorithm
+    private static final Long SERVICE_PVT_KEY_ID = 1L;
 
     private final ElectionRepository electionRepository;
     private final CandidateRepository candidateRepository;
     private final BallotRepository ballotRepository;
     private final ServiceRepository serviceRepository;
+    private final PrivateKeyRepository privateKeyRepository;
     private final VoterRepository voterRepository;
     private final MultiSignature multiSignature;
     private final GroupSignature groupSignature;
 
+    private PrivateKeyEntity privateKey;
 
     private enum ServiceId {
         VOTE_AUTHORITY_SERVICE(1),
@@ -57,29 +63,41 @@ public class VoteAuthorityService {
             CandidateRepository candidateRepository,
             BallotRepository ballotRepository,
             ServiceRepository serviceRepository,
-            VoterRepository voterRepository
+            VoterRepository voterRepository,
+            PrivateKeyRepository privateKeyRepository
     ) {
         this.electionRepository = electionRepository;
         this.candidateRepository = candidateRepository;
         this.ballotRepository = ballotRepository;
         this.serviceRepository = serviceRepository;
         this.voterRepository = voterRepository;
+        this.privateKeyRepository = privateKeyRepository;
         this.multiSignature = new MultiSignature(2048);
-        this.groupSignature = new GroupSignature(2048);
+
+        try {
+            this.groupSignature = new GroupSignature(2048);
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+            throw new IllegalStateException("Error initializing group signature: " + e.getMessage());
+        }
 
         if (multiSignature == null) {
             throw new IllegalStateException("MultiSignature bean not found!");
         }
         // Create a multi-signature key pair for the service
         try {
-            VotingSystemService service = multiSignature.getServiceKeys(
+            KeyPair keyPair = multiSignature.generateKeyPair();
+
+            // Save the private key
+            savePrivateKey(keyPair.getPrivate().getEncoded());
+
+            VotingSystemService service = createService(
                     (long) ServiceId.VOTE_AUTHORITY_SERVICE.getId(),
                     "Vote Authority Service",
                     "Service responsible for managing elections",
-                    "http://localhost:8080"
+                    "http://localhost:8080",
+                    keyPair.getPublic()
             );
 
-            service.setPrivateKey(encryptKey(service.getPrivateKey())); // Encrypt the private key
             service.setPublicKey(encryptKey(service.getPublicKey()));  // Encrypt the public key
 
             // Store
@@ -180,12 +198,12 @@ public class VoteAuthorityService {
 
         Long serviceId = (long) ServiceId.VOTE_AUTHORITY_SERVICE.getId();
         // Get the multi signature key pair
-        KeyPair keyPair = retrieveServiceKeys(serviceId);
+        PrivateKey privateKey = retrievePrivateKey();
 
         // Get the multi signature
-        String multiSignature = this.multiSignature.signData(serviceId, ballotContent, keyPair);
+        String signature = multiSignature.signData(ballotContent, privateKey);
 
-        ballot.addMultiSignature(multiSignature);
+        ballot.addMultiSignature(signature);
 
         return ballot;
     }
@@ -211,18 +229,41 @@ public class VoteAuthorityService {
         return "Election ended!";
     }
 
-    // Generate group keys for a single eligible voter and store them
-    public KeyPair joinVoterGroup(User user, Long electionId) throws NoSuchAlgorithmException, GeneralSecurityException {
-        KeyPair voterKeyPair = groupSignature.joinVotersGroup(user.getId().toString()); // Generate a key pair for the voter
-        String publicKey = Base64.getEncoder().encodeToString(voterKeyPair.getPublic().getEncoded()); // Encode the public key
+    public Map<String, String> getGroupEncryptionParameters(Long electionID) {
+        Map<String, String> parameters = new HashMap<>();
+        parameters.put("n", groupSignature.getN().toString());
+        parameters.put("a", groupSignature.getA().toString());
+        parameters.put("g", groupSignature.getG().toString());
+        return parameters;
+    }
 
-        // Create a new Voter entity
+    public String requestJoinGroup(User user, Long electionID, String y) {
+
+        Integer r = groupSignature.getNonce();
+
         Voter voter = new Voter(user);
-        voter.setPublicKey(publicKey);
 
-        voterRepository.save(voter); // Save the voter entity to the database
+        voter.setTempR(r.toString());
+        voter.setTempY(y);
 
-        return voterKeyPair;  // Return the key pair of the voter
+        voterRepository.save(voter);
+        // Logic for requesting to join the group
+        return r.toString();
+    }
+
+    // Generate group keys for a single eligible voter and store them
+    public String joinVoterGroup(User user, Long electionId, Map<String, String> parameters) throws NoSuchAlgorithmException {
+
+        // Retrieve the voter entity
+        Voter voter = voterRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Voter not found with user id: " + user.getId()));
+
+        String r = voter.getTempR();
+        String y = voter.getTempY();
+
+        BigInteger certificate = groupSignature.join(new BigInteger(y), new BigInteger(r), new BigInteger(parameters.get("T")), new BigInteger(parameters.get("s")));
+
+        return certificate.toString();
     }
 
     // Generate secret key for vote encryption
@@ -232,7 +273,7 @@ public class VoteAuthorityService {
     }
 
     // Allow a service to join and return the multi-signature for that service
-    public VotingSystemService joinService(String serviceName, String serviceUrl, String serviceDescription) throws GeneralSecurityException {
+    public VotingSystemService joinService(String serviceName, String serviceUrl, String serviceDescription, PublicKey publicKey) throws GeneralSecurityException {
         // Validate the service name
         if (serviceName == null || serviceName.isEmpty()) {
             throw new IllegalArgumentException("Service name cannot be empty.");
@@ -248,10 +289,9 @@ public class VoteAuthorityService {
         }
 
         // Create a new Service with multi-signature and store the service keys
-        VotingSystemService service = multiSignature.getServiceKeys(serviceId,serviceName, serviceDescription, serviceUrl);
+        VotingSystemService service = createService(serviceId,serviceName, serviceDescription, serviceUrl, publicKey);
 
         // Encrypt the service keys
-        service.setPrivateKey(encryptKey(service.getPrivateKey()));
         service.setPublicKey(encryptKey(service.getPublicKey()));
 
         // Save the service to the database
@@ -266,19 +306,16 @@ public class VoteAuthorityService {
     }
 
     // Retrieve service keys based on the service ID
-    private KeyPair retrieveServiceKeys(Long serviceId) throws GeneralSecurityException {
+    private PublicKey retrieveServicePublicKeys(Long serviceId) throws GeneralSecurityException {
         VotingSystemService service = serviceRepository.findById(serviceId).orElse(null);
 
         if (service != null) {
             byte[] decryptedPublicKey = decryptKey(service.getPublicKey());
-            byte[] decryptedPrivateKey = decryptKey(service.getPrivateKey());
 
             // Convert decrypted byte arrays back into Key objects
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-            PublicKey publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(decryptedPublicKey));
-            PrivateKey privateKey = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(decryptedPrivateKey));
 
-            return new KeyPair(publicKey, privateKey);
+            return keyFactory.generatePublic(new X509EncodedKeySpec(decryptedPublicKey));
         }
         throw new IllegalArgumentException("Service not found: " + serviceId);
     }
@@ -297,5 +334,37 @@ public class VoteAuthorityService {
         Cipher cipher = Cipher.getInstance(AES);
         cipher.init(Cipher.DECRYPT_MODE, secretKey);
         return cipher.doFinal(encryptedKey);
+    }
+
+    // Store service keys and return the created Service object
+    private VotingSystemService createService(Long serviceId, String serviceName, String description, String url, PublicKey publicKey) throws GeneralSecurityException {
+
+        VotingSystemService service = new VotingSystemService();
+        service.setId(serviceId);
+        service.setName(serviceName);
+        service.setDescription(description);
+        service.setUrl(url);
+        service.setPublicKey(encryptKey(publicKey.getEncoded()));
+
+        return service;
+    }
+
+    private void savePrivateKey(byte[] privateKey) throws GeneralSecurityException {
+        PrivateKeyEntity privateKeyEntity = new PrivateKeyEntity();
+        privateKeyEntity.setPrivateKey(encryptKey(privateKey));
+
+        privateKeyRepository.save(privateKeyEntity);
+    }
+
+    private PrivateKey retrievePrivateKey() throws GeneralSecurityException {
+        if (privateKey == null) {
+            privateKey = privateKeyRepository.findById(SERVICE_PVT_KEY_ID)
+                    .orElseThrow(() -> new IllegalArgumentException("Private key not found."));
+        }
+
+        // Convert decrypted byte arrays back into Key objects
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+
+        return keyFactory.generatePrivate(new X509EncodedKeySpec(decryptKey(privateKey.getPrivateKey())));
     }
 }
