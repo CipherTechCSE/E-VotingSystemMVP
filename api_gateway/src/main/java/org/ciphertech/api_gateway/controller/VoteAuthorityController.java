@@ -111,11 +111,11 @@ public class VoteAuthorityController {
     }
 
     // Start an election
-    @PostMapping("/admin/start-election")
-    public ResponseEntity<AuthorityResponse<Candidate>> startElection() {
+    @PostMapping("/admin/start-election/{id}")
+    public ResponseEntity<AuthorityResponse<Candidate>> startElection(@PathVariable Long id) {
         try {
             // Call the service method to start the election
-            String message = voteAuthorityService.startElection();
+            String message = voteAuthorityService.startElection(id);
 
             AuthorityResponse<Candidate> response = new AuthorityResponse<>(message, null);
             return new ResponseEntity<>(response, HttpStatus.OK);
@@ -126,11 +126,11 @@ public class VoteAuthorityController {
     }
 
     // End an election
-    @PostMapping("/admin/end-election")
-    public ResponseEntity<AuthorityResponse<Candidate>> endElection() {
+    @PostMapping("/admin/end-election/{id}")
+    public ResponseEntity<AuthorityResponse<Candidate>> endElection(@PathVariable Long id) {
         try {
             // Call the service method to end the election
-            String message = voteAuthorityService.endElection();
+            String message = voteAuthorityService.endElection(id);
 
             AuthorityResponse<Candidate> response = new AuthorityResponse<>(message, null);
             return new ResponseEntity<>(response, HttpStatus.OK);

@@ -1,6 +1,7 @@
 package org.ciphertech.api_gateway.dto.auth;
 
 public class RegisterRequest {
+    private String accessToken;
     private String username;
     private String password;
     private String deviceFingerprint;
@@ -86,6 +87,14 @@ public class RegisterRequest {
 
     public void setNic(String nic) {
         this.nic = nic;
+    }
+
+    public void setAccessToken(String accessToken) {
+        this.accessToken = accessToken;
+    }
+
+    public String getAccessToken() {
+        return accessToken;
     }
 
     @Override

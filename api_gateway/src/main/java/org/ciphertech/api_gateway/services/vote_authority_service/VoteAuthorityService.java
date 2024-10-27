@@ -220,14 +220,24 @@ public class VoteAuthorityService {
     }
 
     // Start an election
-    public String startElection() {
-        // Logic for starting the election
+    public String startElection(Long electionID) {
+
+        Election election = electionRepository.findById(electionID)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found with id: " + electionID));
+
+        election.setIsActive(true);
+
         return "Election started!";
     }
 
     // End an election
-    public String endElection() {
-        // Logic for ending the election
+    public String endElection(Long electionID) {
+
+        Election election = electionRepository.findById(electionID)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found with id: " + electionID));
+
+        election.setIsActive(false);
+
         return "Election ended!";
     }
 
