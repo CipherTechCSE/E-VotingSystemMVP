@@ -67,7 +67,7 @@ public class GroupSignature {
     }
 
     public Integer getNonce() {
-        return random.nextInt();
+        return Math.abs(random.nextInt());
     }
 
     // Proving knowledge of x
@@ -89,7 +89,7 @@ public class GroupSignature {
     // g^s.y^T mod n = g^r mod n
     // T is the proof challenge
     private boolean verifyKnowledgeProof(BigInteger y, BigInteger r, BigInteger T, BigInteger s) {
-        // Check if g^s * y^c ≡ g^r mod n
+        // Check if g^s * y^T ≡ g^r mod n
         BigInteger leftSide = g.modPow(s, n).multiply(y.modPow(T, n)).mod(n);
         return leftSide.equals(g.modPow(r, n));
     }
@@ -98,7 +98,7 @@ public class GroupSignature {
     public BigInteger join(BigInteger y, BigInteger r, BigInteger T, BigInteger s) throws NoSuchAlgorithmException {
 
         // Check the knowledge of x
-        if (!verifyKnowledgeProof(y, r, T, s)) {
+        if (verifyKnowledgeProof(y, r, T, s)) {
             throw new SecurityException("Knowledge proof verification failed.");
         }
 

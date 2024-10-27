@@ -31,9 +31,20 @@ public class AuthController {
         return authService.register(registerRequest);
     }
 
+    @PostMapping("/register-admin")
+    public String registerAdmin(@RequestBody RegisterRequest registerRequest) {
+
+        if (!authService.validateAdminAccessToken(registerRequest.getAccessToken())) {
+            return "Invalid token";
+        }
+
+        System.out.println("Register request received: " + registerRequest);
+        return authService.registerAdmin(registerRequest);
+    }
+
     @PostMapping("/logout")
-    public String logout(@RequestBody LogoutRequest logoutRequest) {
-        return authService.logout(logoutRequest);
+    public String logout() {
+        return authService.logout(null);
     }
 }
 

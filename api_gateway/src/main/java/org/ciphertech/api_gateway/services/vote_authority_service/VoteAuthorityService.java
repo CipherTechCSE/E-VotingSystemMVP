@@ -142,6 +142,8 @@ public class VoteAuthorityService {
             throw new IllegalArgumentException("End date must be after start date.");
         }
 
+        election.setIsActive(false);
+
         // Save the election to the database
         return electionRepository.save(election);
     }
@@ -176,11 +178,13 @@ public class VoteAuthorityService {
 
         // Create a new ballot
         Ballot ballot = new Ballot();
+
         Voter voter = voterRepository.findByUserId(user.getId())
             .orElseThrow(() -> new IllegalArgumentException("Voter not found with user id: " + user.getId()));
 
         // Set the voter and election
         ballot.setVoter(voter);
+        ballot.setIssuedAt(LocalDateTime.now());
 
         Election electionObj = electionRepository.findById(election)
                 .orElseThrow(() -> new IllegalArgumentException("Election not found with id: " + election));
@@ -218,14 +222,24 @@ public class VoteAuthorityService {
     }
 
     // Start an election
-    public String startElection() {
-        // Logic for starting the election
+    public String startElection(Long electionID) {
+
+        Election election = electionRepository.findById(electionID)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found with id: " + electionID));
+
+        election.setIsActive(true);
+
         return "Election started!";
     }
 
     // End an election
-    public String endElection() {
-        // Logic for ending the election
+    public String endElection(Long electionID) {
+
+        Election election = electionRepository.findById(electionID)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found with id: " + electionID));
+
+        election.setIsActive(false);
+
         return "Election ended!";
     }
 
@@ -241,10 +255,16 @@ public class VoteAuthorityService {
 
         Integer r = groupSignature.getNonce();
 
-        Voter voter = new Voter(user);
+        Election election = electionRepository.findById(electionID)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found with id: " + electionID));
+
+        Voter voter = voterRepository.findByUserId(user.getId())
+                .orElse(new Voter(user));
 
         voter.setTempR(r.toString());
         voter.setTempY(y);
+
+        voter.setElection(election);
 
         voterRepository.save(voter);
         // Logic for requesting to join the group
@@ -260,8 +280,12 @@ public class VoteAuthorityService {
 
         String r = voter.getTempR();
         String y = voter.getTempY();
+        String T = parameters.get("T");
+        String s = parameters.get("S");
 
-        BigInteger certificate = groupSignature.join(new BigInteger(y), new BigInteger(r), new BigInteger(parameters.get("T")), new BigInteger(parameters.get("s")));
+        BigInteger certificate = groupSignature.join(new BigInteger(y), new BigInteger(r), new BigInteger(T), new BigInteger(s));
+
+        System.out.println(certificate);
 
         return certificate.toString();
     }

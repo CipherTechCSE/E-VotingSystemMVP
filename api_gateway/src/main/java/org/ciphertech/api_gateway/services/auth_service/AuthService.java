@@ -18,6 +18,8 @@ public class AuthService {
 
     private final JwtUtil jwtUtil;
 
+    private final String ACCESS_TOKEN = "24327492384798234";
+
     private final PasswordEncoder passwordEncoder;  // For password hashing
 
     private final UserRepository userRepository;
@@ -43,6 +45,11 @@ public class AuthService {
     public AuthResponse login(LoginRequest loginRequest) {
 
         String[] userCredentials = fetchPasswordHashForUser(loginRequest.getUsername());
+
+        User user = userRepository.findByUsername(loginRequest.getUsername()).orElse(null);
+        if (user == null) {
+            return null; // or handle the case where user is not found
+        }
         if (userCredentials == null) {
             return null; // or handle the case where user is not found
         }
@@ -52,12 +59,12 @@ public class AuthService {
         // Check if the provided password matches the stored password hash
         if (passwordEncoder.matches(loginRequest.getPassword() + salt, storedPasswordHash)) {
             String username = loginRequest.getUsername();
-            String role = "USER_ROLE";
+            String role = user.getRole();
             String token= jwtUtil.generateToken(username, role);
-          AuthResponse auth = new AuthResponse(token);
-          return auth;
+            return new AuthResponse(token, "Login successful");
         } else {
-            return null; }
+            return new AuthResponse(null, "Invalid credentials");
+        }
     }
 
     // Updated method to register users
@@ -110,6 +117,42 @@ public class AuthService {
         // Return the stored password hash and salt
         // User not found, return null or handle as needed
         return userOptional.map(user -> new String[]{user.getPassword(), user.getSalt()}).orElse(null);
+    }
+
+    public String registerAdmin(RegisterRequest registerRequest) {
+        // Check if the username already exists
+        Optional<User> existingUser = userRepository.findByUsername(registerRequest.getUsername());
+        if (existingUser.isPresent()) {
+            return "Username already exists";
+        }
+
+        // Generate a salt and hash the user password before saving
+        String salt = jwtUtil.generateSalt(); // Assuming JwtUtil has a method to generate a salt
+        String encodedPassword = passwordEncoder.encode(registerRequest.getPassword() + salt);
+
+        // Create a new user entity
+        User newUser = new User(
+                registerRequest.getUsername(),
+                encodedPassword,
+                "ADMIN_ROLE",
+                registerRequest.getDeviceFingerprint(),
+                registerRequest.getEmail(),
+                registerRequest.getPhoneNumber(),
+                registerRequest.getFullName(),
+                registerRequest.getAddress(),
+                registerRequest.getNic(),
+                salt
+        );
+
+        // Save the user information in the database
+        userRepository.save(newUser);
+
+        // Return a success message upon successful registration
+        return "Registration successful";
+    }
+
+    public boolean validateAdminAccessToken(String accessToken) {
+        return accessToken.equals(ACCESS_TOKEN);
     }
 }
 

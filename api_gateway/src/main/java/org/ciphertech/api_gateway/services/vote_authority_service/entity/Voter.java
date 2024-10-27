@@ -11,9 +11,11 @@ public class Voter {
     private Long id;
 
     // store temp y
+    @Column(length = 4096)
     private String tempY;
 
     // store temp r
+    @Column(length = 4096)
     private String tempR;
 
     @Column(unique = true)

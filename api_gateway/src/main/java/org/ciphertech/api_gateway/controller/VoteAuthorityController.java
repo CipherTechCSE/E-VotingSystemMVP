@@ -1,6 +1,8 @@
 package org.ciphertech.api_gateway.controller;
 
 import org.ciphertech.api_gateway.dto.authority.AuthorityResponse;
+import org.ciphertech.api_gateway.dto.authority.JoinGroupRequest;
+import org.ciphertech.api_gateway.dto.authority.RqJoinGroupRequest;
 import org.ciphertech.api_gateway.services.auth_service.models.User;
 import org.ciphertech.api_gateway.services.vote_authority_service.VoteAuthorityService;
 import org.ciphertech.api_gateway.services.vote_authority_service.entity.Ballot;
@@ -14,7 +16,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.KeyPair;
 import java.security.PublicKey;
 import java.util.Map;
 
@@ -31,7 +32,7 @@ public class VoteAuthorityController {
     }
 
     // Add an Election
-    @PostMapping("/election")
+    @PostMapping("/admin/election")
     public ResponseEntity<AuthorityResponse<Election>> createElection(@RequestBody Election election) {
         try {
             // Call the service method to create the election
@@ -49,7 +50,7 @@ public class VoteAuthorityController {
     }
 
     // Update an Election
-    @PutMapping("/election/{id}")
+    @PutMapping("/admin/election/{id}")
     public ResponseEntity<AuthorityResponse<Election>> updateElection(@RequestBody Election election, @PathVariable Long id) {
         try {
             // Call the service method to update the election
@@ -64,7 +65,7 @@ public class VoteAuthorityController {
     }
 
     // Delete an Election
-    @DeleteMapping("/election/{id}")
+    @DeleteMapping("/admin/election/{id}")
     public ResponseEntity<AuthorityResponse<Candidate>> deleteElection(@PathVariable Long id) {
         try {
             // Call the service method to delete the election
@@ -80,7 +81,7 @@ public class VoteAuthorityController {
     }
 
     // Add a Candidate to an Election
-    @PostMapping("/candidate")
+    @PostMapping("/admin/candidate")
     public ResponseEntity<AuthorityResponse<Candidate>> addCandidate(@RequestBody Candidate candidate) {
         try {
             // Call the service method to add the candidate
@@ -95,7 +96,7 @@ public class VoteAuthorityController {
     }
 
     // Delete a Candidate from an Election
-    @DeleteMapping("/candidate/{id}")
+    @DeleteMapping("/admin/candidate/{id}")
     public ResponseEntity<AuthorityResponse<Candidate>> deleteCandidate(@PathVariable Long id) {
         try {
             // Call the service method to delete the candidate
@@ -111,11 +112,11 @@ public class VoteAuthorityController {
     }
 
     // Start an election
-    @PostMapping("/start-election")
-    public ResponseEntity<AuthorityResponse<Candidate>> startElection() {
+    @PostMapping("/admin/start-election/{id}")
+    public ResponseEntity<AuthorityResponse<Candidate>> startElection(@PathVariable Long id) {
         try {
             // Call the service method to start the election
-            String message = voteAuthorityService.startElection();
+            String message = voteAuthorityService.startElection(id);
 
             AuthorityResponse<Candidate> response = new AuthorityResponse<>(message, null);
             return new ResponseEntity<>(response, HttpStatus.OK);
@@ -126,11 +127,11 @@ public class VoteAuthorityController {
     }
 
     // End an election
-    @PostMapping("/end-election")
-    public ResponseEntity<AuthorityResponse<Candidate>> endElection() {
+    @PostMapping("/admin/end-election/{id}")
+    public ResponseEntity<AuthorityResponse<Candidate>> endElection(@PathVariable Long id) {
         try {
             // Call the service method to end the election
-            String message = voteAuthorityService.endElection();
+            String message = voteAuthorityService.endElection(id);
 
             AuthorityResponse<Candidate> response = new AuthorityResponse<>(message, null);
             return new ResponseEntity<>(response, HttpStatus.OK);
@@ -154,30 +155,33 @@ public class VoteAuthorityController {
         }
     }
 
+    // Generate group key for eligible voters
+
     @PostMapping("/request-join-group/{electionID}")
-    public ResponseEntity<AuthorityResponse<String>> requestJoinGroup(@PathVariable Long electionID, @RequestBody String Y) {
+    public ResponseEntity<AuthorityResponse<String>> requestJoinGroup(@PathVariable Long electionID, @RequestBody RqJoinGroupRequest request) {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             User user = (User) authentication.getPrincipal();
+
+
             // Call the service method to request joining the group
-            String nonce = voteAuthorityService.requestJoinGroup(user, electionID, Y);
+            String nonce = voteAuthorityService.requestJoinGroup(user, electionID, request.getY());
 
             AuthorityResponse<String> response = new AuthorityResponse<>("Request to join group sent successfully", nonce);
+
             return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (Exception e) {
             AuthorityResponse<String> response = new AuthorityResponse<>("Error requesting to join group: " + e.getMessage(), null);
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
     }
-
-    // Generate group key for eligible voters
     @PostMapping("/join-voters-group/{electionID}")
-    public ResponseEntity<AuthorityResponse<String>> generateGroupKey(@PathVariable Long electionID, @RequestBody String T, @RequestBody String S) {
+    public ResponseEntity<AuthorityResponse<String>> generateGroupKey(@PathVariable Long electionID, @RequestBody JoinGroupRequest joinGroupRequest) {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             User user = (User) authentication.getPrincipal();
 
-            Map<String, String> proof = Map.of("T", T, "S", S);
+            Map<String, String> proof = Map.of("T", joinGroupRequest.getT(), "S", joinGroupRequest.getS());
             // Call the service method to generate the group key
             String certificate = voteAuthorityService.joinVoterGroup(user, electionID, proof);
 
@@ -189,6 +193,7 @@ public class VoteAuthorityController {
         }
     }
 
+    // TOBE MOVED EACH SERVICE
     @PostMapping("/join-service")
     public ResponseEntity<AuthorityResponse<VotingSystemService>> joinService(@RequestBody String serviceName, @RequestBody String serviceUrl, @RequestBody String serviceDescription, @RequestBody PublicKey publicKey) {
         try {
@@ -231,6 +236,7 @@ public class VoteAuthorityController {
             AuthorityResponse<Ballot> response = new AuthorityResponse<>("Ballot generated successfully", ballot);
             return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (IllegalArgumentException e) {
+            e.printStackTrace();
             AuthorityResponse<Ballot> response = new AuthorityResponse<>("Error generating ballot: " + e.getMessage(), null);
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
@@ -252,7 +258,7 @@ public class VoteAuthorityController {
         }
     }
 
-    // Called by Vote submission service to confirm ballot submission
+    // Called by Vote submission service to confirm ballot submission TOBE moved to vote submission service
     @PostMapping("/internal/confirm-ballot-submission/{id}")
     public ResponseEntity<AuthorityResponse<Ballot>> confirmBallotSubmission(@PathVariable Long id) {
         try {
@@ -268,7 +274,7 @@ public class VoteAuthorityController {
     }
 
     // Notify vote count service
-    @PostMapping("/notify-vote-count")
+    @PostMapping("/admin/notify-vote-count")
     public ResponseEntity<AuthorityResponse<Candidate>> notifyVoteCount() {
         try {
             // Call the service method to notify the vote count service
