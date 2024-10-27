@@ -25,7 +25,6 @@ public class Ballot {
     @Column(nullable = false)
     private LocalDateTime issuedAt;
 
-    @Column(nullable = false)
     private LocalDateTime submittedAt;
 
     @ManyToOne

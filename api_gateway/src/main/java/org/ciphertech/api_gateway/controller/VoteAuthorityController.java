@@ -236,6 +236,7 @@ public class VoteAuthorityController {
             AuthorityResponse<Ballot> response = new AuthorityResponse<>("Ballot generated successfully", ballot);
             return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (IllegalArgumentException e) {
+            e.printStackTrace();
             AuthorityResponse<Ballot> response = new AuthorityResponse<>("Error generating ballot: " + e.getMessage(), null);
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }

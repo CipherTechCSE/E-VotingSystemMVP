@@ -1,3 +1,4 @@
+import hashlib
 from math import gcd
 import requests
 import json
@@ -9,6 +10,10 @@ class ElectionSystem:
         self.base_url = base_url  # Base URL of the Spring application
         self.token = None  # To store the Bearer token for admin access
         self.group_encryption_parameters = None  # To store the group encryption parameters
+        self.x = None  # To store the random number x for joining the group
+        self.r = None
+        self.y = None
+        self.s = None
 
     def login(self, username, password):
         # Send POST request to the login endpoint
@@ -142,37 +147,64 @@ class ElectionSystem:
             if gcd(x, n) == 1:
                 break
 
+        self.x = x
         # y = a^x mod n and z = g^x mod n
         y = pow(a, x, n)
         z = pow(g, x, n)
 
+        self.y = y
+
         # Send POST request to request to join the voters group
         payload = {"y": str(y)}
-        print("Payload sent to server:", payload)
 
         headers = {"Authorization": f"Bearer {self.token}","Content-Type": "application/json"}
         response = requests.post(f"{self.base_url}/authority/request-join-group/{election_id}", json=payload, headers=headers)
         if response.status_code == 200:
-            r = response.json().get("data") 
-            print(f"User {username} requested to join the voters group and received r: {r}")
+            self.r = response.json().get("data") 
+            print(f"User {username} requested to join the voters group and received r: {self.r}")
         else:
             print("Error trying to join voters group:", response)
 
-    def join_group(self, username, random_number):
-        # Send POST request for user to join group
-        payload = {"username": username, "random_number": random_number}
-        headers = {"Authorization": f"Bearer {self.token}"}  # Include the Bearer token
-        response = requests.post(f"{self.base_url}/user/joinGroup", json=payload, headers=headers)
+    def join_group(self, username, election_id):
+        # Retrieve parameters from group encryption parameters
+        n = int(self.group_encryption_parameters.get("n"))
+        a = int(self.group_encryption_parameters.get("a"))
+
+        # Use the existing random value r
+        r = int(self.r)  # Make sure r is initialized elsewhere
+
+        # Step 1: Compute y = a^r mod n
+        self.y = pow(a, r, n)  # Calculate y only once
+
+        # Step 2: Create a challenge T based on y and r
+        hash_input = (str(self.y) + str(r)).encode()
+        T = int.from_bytes(hashlib.sha256(hash_input).digest(), byteorder='big') % n  # Ensure T is within range
+
+        # Step 3: Compute s using the secret key x
+        if self.x is None:
+            raise ValueError("Secret key x is not set.")
+        
+        s = (r - T * self.x) % n  # Compute s
+
+        # Prepare payload to send (do not include y since it's generated)
+        payload = {
+            "t": T,
+            "s": s  # Sending T and s to the server
+        }
+
+        # Step 4: Send POST request for user to join group
+        headers = {"Authorization": f"Bearer {self.token}"}
+        response = requests.post(f"{self.base_url}/authority/join-voters-group/{election_id}", json=payload, headers=headers)
+        
         if response.status_code == 200:
-            print(f"User {username} joined the group with key: {random_number}")
+            print(f"User {username} joined the group with key x: {self.x}")
         else:
             print("Error joining group:", response.json())
 
-    def request_ballot(self, username, election_id):
+    def request_ballot(self, election_id):
         # Send GET request to request a ballot
-        payload = {"username": username, "election_id": election_id}
         headers = {"Authorization": f"Bearer {self.token}"}  # Include the Bearer token
-        response = requests.get(f"{self.base_url}/user/requestBallot", json=payload, headers=headers)
+        response = requests.get(f"{self.base_url}/authority/requestBallot/{election_id}", headers=headers)
         if response.status_code == 200:
             return response.json()  # Return the ballot info
         else:
@@ -274,11 +306,15 @@ if __name__ == "__main__":
         election_system.get_group_encryption_parameters(created_election_id)
         print(f"Group Encryption Parameters: {election_system.group_encryption_parameters}")
 
-        # Step 7: Join Group
+        # Step 7: Request Join Group
         election_system.request_join_voters_group("user1", created_election_id)
 
+        # Step 8: Join Group
+        election_system.join_group("user1", created_election_id)    
+
     #     # Step 8: Request Ballot
-    #     ballot = election_system.request_ballot("user1", "election_2024")
+        ballot = election_system.request_ballot(created_election_id)
+        print(f"Ballot: {ballot}")
 
     #     # Step 9: Vote and Blind
     #     vote = election_system.vote("user1", ballot["ballot_id"], "Candidate A")
@@ -292,4 +328,3 @@ if __name__ == "__main__":
 
     #     # Step 12: Submit Ballot
     #     election_system.submit_ballot("user1", unblinded_vote, signature)
-

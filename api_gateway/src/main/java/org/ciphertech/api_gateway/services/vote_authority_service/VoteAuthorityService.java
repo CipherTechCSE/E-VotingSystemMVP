@@ -178,11 +178,13 @@ public class VoteAuthorityService {
 
         // Create a new ballot
         Ballot ballot = new Ballot();
+
         Voter voter = voterRepository.findByUserId(user.getId())
             .orElseThrow(() -> new IllegalArgumentException("Voter not found with user id: " + user.getId()));
 
         // Set the voter and election
         ballot.setVoter(voter);
+        ballot.setIssuedAt(LocalDateTime.now());
 
         Election electionObj = electionRepository.findById(election)
                 .orElseThrow(() -> new IllegalArgumentException("Election not found with id: " + election));
@@ -278,8 +280,12 @@ public class VoteAuthorityService {
 
         String r = voter.getTempR();
         String y = voter.getTempY();
+        String T = parameters.get("T");
+        String s = parameters.get("S");
 
-        BigInteger certificate = groupSignature.join(new BigInteger(y), new BigInteger(r), new BigInteger(parameters.get("T")), new BigInteger(parameters.get("s")));
+        BigInteger certificate = groupSignature.join(new BigInteger(y), new BigInteger(r), new BigInteger(T), new BigInteger(s));
+
+        System.out.println(certificate);
 
         return certificate.toString();
     }
