@@ -142,6 +142,8 @@ public class VoteAuthorityService {
             throw new IllegalArgumentException("End date must be after start date.");
         }
 
+        election.setIsActive(false);
+
         // Save the election to the database
         return electionRepository.save(election);
     }
@@ -241,10 +243,14 @@ public class VoteAuthorityService {
 
         Integer r = groupSignature.getNonce();
 
+        Election election = electionRepository.findById(electionID)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found with id: " + electionID));
+
         Voter voter = new Voter(user);
 
         voter.setTempR(r.toString());
         voter.setTempY(y);
+        voter.setElection(election);
 
         voterRepository.save(voter);
         // Logic for requesting to join the group

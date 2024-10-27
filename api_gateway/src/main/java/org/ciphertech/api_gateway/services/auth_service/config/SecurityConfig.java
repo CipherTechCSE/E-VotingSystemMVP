@@ -49,6 +49,7 @@ public class SecurityConfig {
                 .cors(AbstractHttpConfigurer::disable)            // Disable CORS (adjust if needed)
                 .authorizeHttpRequests(auth -> auth      // Configure authorization
                         .requestMatchers(PUBLIC_ROUTES).permitAll()   // Allows public access to specified URLs
+                        .requestMatchers("/api/authority/admin/**", "/api/verify/admin/**").hasRole("ADMIN_ROLE")  // Requires ADMIN role for specified URLs
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session    // Set stateless session management

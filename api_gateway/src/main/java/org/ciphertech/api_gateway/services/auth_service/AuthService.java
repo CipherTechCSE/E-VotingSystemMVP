@@ -43,6 +43,11 @@ public class AuthService {
     public AuthResponse login(LoginRequest loginRequest) {
 
         String[] userCredentials = fetchPasswordHashForUser(loginRequest.getUsername());
+
+        User user = userRepository.findByUsername(loginRequest.getUsername()).orElse(null);
+        if (user == null) {
+            return null; // or handle the case where user is not found
+        }
         if (userCredentials == null) {
             return null; // or handle the case where user is not found
         }
@@ -52,10 +57,9 @@ public class AuthService {
         // Check if the provided password matches the stored password hash
         if (passwordEncoder.matches(loginRequest.getPassword() + salt, storedPasswordHash)) {
             String username = loginRequest.getUsername();
-            String role = "USER_ROLE";
+            String role = user.getRole();
             String token= jwtUtil.generateToken(username, role);
-          AuthResponse auth = new AuthResponse(token);
-          return auth;
+            return new AuthResponse(token);
         } else {
             return null; }
     }

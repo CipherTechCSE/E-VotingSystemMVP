@@ -31,7 +31,7 @@ public class VoteAuthorityController {
     }
 
     // Add an Election
-    @PostMapping("/election")
+    @PostMapping("/admin/election")
     public ResponseEntity<AuthorityResponse<Election>> createElection(@RequestBody Election election) {
         try {
             // Call the service method to create the election
@@ -49,7 +49,7 @@ public class VoteAuthorityController {
     }
 
     // Update an Election
-    @PutMapping("/election/{id}")
+    @PutMapping("/admin/election/{id}")
     public ResponseEntity<AuthorityResponse<Election>> updateElection(@RequestBody Election election, @PathVariable Long id) {
         try {
             // Call the service method to update the election
@@ -64,7 +64,7 @@ public class VoteAuthorityController {
     }
 
     // Delete an Election
-    @DeleteMapping("/election/{id}")
+    @DeleteMapping("/admin/election/{id}")
     public ResponseEntity<AuthorityResponse<Candidate>> deleteElection(@PathVariable Long id) {
         try {
             // Call the service method to delete the election
@@ -80,7 +80,7 @@ public class VoteAuthorityController {
     }
 
     // Add a Candidate to an Election
-    @PostMapping("/candidate")
+    @PostMapping("/admin/candidate")
     public ResponseEntity<AuthorityResponse<Candidate>> addCandidate(@RequestBody Candidate candidate) {
         try {
             // Call the service method to add the candidate
@@ -95,7 +95,7 @@ public class VoteAuthorityController {
     }
 
     // Delete a Candidate from an Election
-    @DeleteMapping("/candidate/{id}")
+    @DeleteMapping("/admin/candidate/{id}")
     public ResponseEntity<AuthorityResponse<Candidate>> deleteCandidate(@PathVariable Long id) {
         try {
             // Call the service method to delete the candidate
@@ -111,7 +111,7 @@ public class VoteAuthorityController {
     }
 
     // Start an election
-    @PostMapping("/start-election")
+    @PostMapping("/admin/start-election")
     public ResponseEntity<AuthorityResponse<Candidate>> startElection() {
         try {
             // Call the service method to start the election
@@ -126,7 +126,7 @@ public class VoteAuthorityController {
     }
 
     // End an election
-    @PostMapping("/end-election")
+    @PostMapping("/admin/end-election")
     public ResponseEntity<AuthorityResponse<Candidate>> endElection() {
         try {
             // Call the service method to end the election
@@ -189,6 +189,7 @@ public class VoteAuthorityController {
         }
     }
 
+    // TOBE MOVED EACH SERVICE
     @PostMapping("/join-service")
     public ResponseEntity<AuthorityResponse<VotingSystemService>> joinService(@RequestBody String serviceName, @RequestBody String serviceUrl, @RequestBody String serviceDescription, @RequestBody PublicKey publicKey) {
         try {
@@ -252,7 +253,7 @@ public class VoteAuthorityController {
         }
     }
 
-    // Called by Vote submission service to confirm ballot submission
+    // Called by Vote submission service to confirm ballot submission TOBE moved to vote submission service
     @PostMapping("/internal/confirm-ballot-submission/{id}")
     public ResponseEntity<AuthorityResponse<Ballot>> confirmBallotSubmission(@PathVariable Long id) {
         try {
@@ -268,7 +269,7 @@ public class VoteAuthorityController {
     }
 
     // Notify vote count service
-    @PostMapping("/notify-vote-count")
+    @PostMapping("/admin/notify-vote-count")
     public ResponseEntity<AuthorityResponse<Candidate>> notifyVoteCount() {
         try {
             // Call the service method to notify the vote count service
