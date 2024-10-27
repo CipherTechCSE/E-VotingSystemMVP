@@ -256,10 +256,12 @@ public class VoteAuthorityService {
         Election election = electionRepository.findById(electionID)
                 .orElseThrow(() -> new IllegalArgumentException("Election not found with id: " + electionID));
 
-        Voter voter = new Voter(user);
+        Voter voter = voterRepository.findByUserId(user.getId())
+                .orElse(new Voter(user));
 
         voter.setTempR(r.toString());
         voter.setTempY(y);
+
         voter.setElection(election);
 
         voterRepository.save(voter);

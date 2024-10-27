@@ -1,3 +1,4 @@
+from math import gcd
 import requests
 import json
 import random
@@ -14,7 +15,7 @@ class ElectionSystem:
         response = requests.post(f"{self.base_url}/auth/login", json={"username": username, "password": password})
         if response.status_code == 200:
             self.token = response.json().get("token")  # Assuming the token is returned in the response JSON
-            print("Admin logged in successfully.")
+            print("User", username, "logged in successfully.")
             return True
         else:
             print("Login failed:", response.json())
@@ -25,7 +26,7 @@ class ElectionSystem:
         headers = {"Authorization": f"Bearer {self.token}"}
         response = requests.post(f"{self.base_url}/auth/logout", headers=headers)
         if response.status_code == 200:
-            print("Admin logged out successfully.")
+            print("User logged out successfully.")
             self.token = None  # Clear the token
         else:
             print("Logout failed:", response.json())
@@ -65,7 +66,7 @@ class ElectionSystem:
     def start_election(self, election_id):
         # Send POST request to start the election
         headers = {"Authorization": f"Bearer {self.token}"}  # Include the Bearer token
-        response = requests.post(f"{self.base_url}/admin/start-election/{election_id}", headers=headers)
+        response = requests.post(f"{self.base_url}/authority/admin/start-election/{election_id}", headers=headers)
         if response.status_code == 200:
             print(f"Election {election_id} started.")
         else:
@@ -74,7 +75,7 @@ class ElectionSystem:
     def end_election(self, election_id):
         # Send POST request to end the election
         headers = {"Authorization": f"Bearer {self.token}"}
-        response = requests.post(f"{self.base_url}/admin/end-election/{election_id}", headers=headers)
+        response = requests.post(f"{self.base_url}/authority/admin/end-election/{election_id}", headers=headers)
         if response.status_code == 200:
             print(f"Election {election_id} ended.")
         else:
@@ -128,6 +129,34 @@ class ElectionSystem:
         else:
             print("Error getting group parameters:", response.json())
             return None
+        
+    def request_join_voters_group(self, username, election_id):
+
+        n = int(self.group_encryption_parameters.get("n"))
+        g = int(self.group_encryption_parameters.get("g"))
+        a = int(self.group_encryption_parameters.get("a"))
+
+        # Generate a random number in Z*n
+        while True:
+            x = random.randint(1, n - 1)
+            if gcd(x, n) == 1:
+                break
+
+        # y = a^x mod n and z = g^x mod n
+        y = pow(a, x, n)
+        z = pow(g, x, n)
+
+        # Send POST request to request to join the voters group
+        payload = {"y": str(y)}
+        print("Payload sent to server:", payload)
+
+        headers = {"Authorization": f"Bearer {self.token}","Content-Type": "application/json"}
+        response = requests.post(f"{self.base_url}/authority/request-join-group/{election_id}", json=payload, headers=headers)
+        if response.status_code == 200:
+            r = response.json().get("data") 
+            print(f"User {username} requested to join the voters group and received r: {r}")
+        else:
+            print("Error trying to join voters group:", response)
 
     def join_group(self, username, random_number):
         # Send POST request for user to join group
@@ -211,7 +240,7 @@ if __name__ == "__main__":
     base_url = "http://localhost:8080/api"  # Update with your Spring application URL
     election_system = ElectionSystem(base_url)
 
-    created_election_id = None
+    created_election_id = 1
 
     # create admin
     election_system.register_admin("admin", "Abc@1234", "device6464", "admin@gmail.com", "1234567890", "John Doe", "123 Main St", "522256785V")
@@ -229,19 +258,24 @@ if __name__ == "__main__":
         election_system.logout()  # Admin logs out after setting up the election
 
 
-    # Step 4: User Self-Registration
+    # Step 3: User Self-Registration
     election_system.register_user("user1", "password1", "device123", "user1@gmail.com", "1234167710", "John Doe", "123 Main St", "123456789V")
     election_system.register_user("user2", "password2", "device456", "user2@gmail.com", "0987654321", "Jane Smith", "456 Elm St", "987654321V")
     election_system.register_user("user3", "password3", "device789", "user3@gmail.com", "1357924680", "Alice Wonderland", "789 Oak St", "246813579V")
 
-    # Step 5: User Login to Get Token
-    # if election_system.login("user1", "password1"):
-    #     # Step 6: Get Group Encryption Parameters
-    #     election_system.get_group_encryption_parameters(created_election_id)
-    #     print(f"Group Encryption Parameters: {election_system.group_encryption_parameters}")
+    # Step 4: Admin Start Election
+    if election_system.login("admin", "Abc@1234"):
+        election_system.start_election(created_election_id)
+        election_system.logout()
 
-    #     # Step 7: Join Group
-    #     election_system.join_group("user1", "random123")
+    # Step 5: User Login to Vote
+    if election_system.login("user1", "password1"):
+        # Step 6: Get Group Encryption Parameters
+        election_system.get_group_encryption_parameters(created_election_id)
+        print(f"Group Encryption Parameters: {election_system.group_encryption_parameters}")
+
+        # Step 7: Join Group
+        election_system.request_join_voters_group("user1", created_election_id)
 
     #     # Step 8: Request Ballot
     #     ballot = election_system.request_ballot("user1", "election_2024")

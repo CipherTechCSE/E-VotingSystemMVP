@@ -67,7 +67,7 @@ public class GroupSignature {
     }
 
     public Integer getNonce() {
-        return random.nextInt();
+        return Math.abs(random.nextInt());
     }
 
     // Proving knowledge of x

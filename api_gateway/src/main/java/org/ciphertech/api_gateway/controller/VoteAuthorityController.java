@@ -1,6 +1,8 @@
 package org.ciphertech.api_gateway.controller;
 
 import org.ciphertech.api_gateway.dto.authority.AuthorityResponse;
+import org.ciphertech.api_gateway.dto.authority.JoinGroupRequest;
+import org.ciphertech.api_gateway.dto.authority.RqJoinGroupRequest;
 import org.ciphertech.api_gateway.services.auth_service.models.User;
 import org.ciphertech.api_gateway.services.vote_authority_service.VoteAuthorityService;
 import org.ciphertech.api_gateway.services.vote_authority_service.entity.Ballot;
@@ -14,7 +16,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.KeyPair;
 import java.security.PublicKey;
 import java.util.Map;
 
@@ -154,30 +155,33 @@ public class VoteAuthorityController {
         }
     }
 
+    // Generate group key for eligible voters
+
     @PostMapping("/request-join-group/{electionID}")
-    public ResponseEntity<AuthorityResponse<String>> requestJoinGroup(@PathVariable Long electionID, @RequestBody String Y) {
+    public ResponseEntity<AuthorityResponse<String>> requestJoinGroup(@PathVariable Long electionID, @RequestBody RqJoinGroupRequest request) {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             User user = (User) authentication.getPrincipal();
+
+
             // Call the service method to request joining the group
-            String nonce = voteAuthorityService.requestJoinGroup(user, electionID, Y);
+            String nonce = voteAuthorityService.requestJoinGroup(user, electionID, request.getY());
 
             AuthorityResponse<String> response = new AuthorityResponse<>("Request to join group sent successfully", nonce);
+
             return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (Exception e) {
             AuthorityResponse<String> response = new AuthorityResponse<>("Error requesting to join group: " + e.getMessage(), null);
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
     }
-
-    // Generate group key for eligible voters
     @PostMapping("/join-voters-group/{electionID}")
-    public ResponseEntity<AuthorityResponse<String>> generateGroupKey(@PathVariable Long electionID, @RequestBody String T, @RequestBody String S) {
+    public ResponseEntity<AuthorityResponse<String>> generateGroupKey(@PathVariable Long electionID, @RequestBody JoinGroupRequest joinGroupRequest) {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             User user = (User) authentication.getPrincipal();
 
-            Map<String, String> proof = Map.of("T", T, "S", S);
+            Map<String, String> proof = Map.of("T", joinGroupRequest.getT(), "S", joinGroupRequest.getS());
             // Call the service method to generate the group key
             String certificate = voteAuthorityService.joinVoterGroup(user, electionID, proof);
 
