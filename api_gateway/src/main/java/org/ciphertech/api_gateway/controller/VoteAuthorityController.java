@@ -1,6 +1,7 @@
 package org.ciphertech.api_gateway.controller;
 
 import org.ciphertech.api_gateway.dto.authority.AuthorityResponse;
+import org.ciphertech.api_gateway.dto.authority.CandidateCreationRequest;
 import org.ciphertech.api_gateway.dto.authority.JoinGroupRequest;
 import org.ciphertech.api_gateway.dto.authority.RqJoinGroupRequest;
 import org.ciphertech.api_gateway.services.auth_service.models.User;
@@ -82,7 +83,7 @@ public class VoteAuthorityController {
 
     // Add a Candidate to an Election
     @PostMapping("/admin/candidate")
-    public ResponseEntity<AuthorityResponse<Candidate>> addCandidate(@RequestBody Candidate candidate) {
+    public ResponseEntity<AuthorityResponse<Candidate>> addCandidate(@RequestBody CandidateCreationRequest candidate) {
         try {
             // Call the service method to add the candidate
             Candidate savedCandidate = voteAuthorityService.addCandidate(candidate);
@@ -254,21 +255,6 @@ public class VoteAuthorityController {
 
         } catch (Exception e) {
             AuthorityResponse<Ballot> response = new AuthorityResponse<>("Error signing ballot: " + e.getMessage(), null);
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-        }
-    }
-
-    // Called by Vote submission service to confirm ballot submission TOBE moved to vote submission service
-    @PostMapping("/internal/confirm-ballot-submission/{id}")
-    public ResponseEntity<AuthorityResponse<Ballot>> confirmBallotSubmission(@PathVariable Long id) {
-        try {
-            // Call the service method to confirm the ballot submission
-            Boolean confirmed = voteAuthorityService.confirmBallotSubmission(id);
-
-            AuthorityResponse<Ballot> response = new AuthorityResponse<>(confirmed ? "Ballot submitted successfully" : "Error submitting ballot", null);
-            return new ResponseEntity<>(response, confirmed ? HttpStatus.OK : HttpStatus.BAD_REQUEST);
-        } catch (IllegalArgumentException e) {
-            AuthorityResponse<Ballot> response = new AuthorityResponse<>("Error submitting ballot: " + e.getMessage(), null);
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
     }

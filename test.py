@@ -54,12 +54,13 @@ class ElectionSystem:
             print("Error creating election:", response.json())
             return None
         
-    def add_candidate(self, name, party, nic):
+    def add_candidate(self, name, party, nic, election_id):
         # Send POST request to add candidates to the election
         payload = {
             "nic": nic,
             "name": name,
-            "party": party
+            "party": party,
+            "electionId": election_id
         }
         headers = {"Authorization": f"Bearer {self.token}"}  # Include the Bearer token
         response = requests.post(f"{self.base_url}/authority/admin/candidate", json=payload, headers=headers)
@@ -205,6 +206,7 @@ class ElectionSystem:
         # Send GET request to request a ballot
         headers = {"Authorization": f"Bearer {self.token}"}  # Include the Bearer token
         response = requests.get(f"{self.base_url}/authority/requestBallot/{election_id}", headers=headers)
+        print(response.text)
         if response.status_code == 200:
             return response.json()  # Return the ballot info
         else:
@@ -282,10 +284,10 @@ if __name__ == "__main__":
         # Step 2: Create Election
         created_election_id = election_system.create_election("election_2024", "2024-10-27T08:55:56.065Z", "2024-10-28T08:55:56.065Z", False)
 
-        election_system.add_candidate("Candidate A", "Party 1", "123456789V")
-        election_system.add_candidate("Candidate B", "Party 2", "987654321V")
-        election_system.add_candidate("Candidate C", "Party 3", "246813579V")
-        election_system.add_candidate("Candidate D", "Party 4", "135792468V")
+        election_system.add_candidate("Candidate A", "Party 1", "123456789V" , created_election_id)
+        election_system.add_candidate("Candidate B", "Party 2", "987654321V" , created_election_id)
+        election_system.add_candidate("Candidate C", "Party 3", "246813579V" , created_election_id)
+        election_system.add_candidate("Candidate D", "Party 4", "135792468V" , created_election_id)
 
         election_system.logout()  # Admin logs out after setting up the election
 

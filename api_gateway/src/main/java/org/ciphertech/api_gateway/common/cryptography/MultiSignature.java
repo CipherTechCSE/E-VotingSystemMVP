@@ -1,15 +1,8 @@
 package org.ciphertech.api_gateway.common.cryptography;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.ciphertech.api_gateway.services.vote_authority_service.entity.VotingSystemService;
-import org.ciphertech.api_gateway.services.vote_authority_service.repository.ServiceRepository;
-import org.springframework.stereotype.Component;
 
-import javax.crypto.Cipher;
-import javax.crypto.spec.SecretKeySpec;
 import java.security.*;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.List;
 

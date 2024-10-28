@@ -15,13 +15,25 @@ public class Candidate {
 
     private String party;
 
+    @ManyToOne
+    @JoinColumn(name = "election_id", nullable = false)
+    private Election election;
+
     // Constructors, getters, setters
     public Candidate() {
     }
 
-    public Candidate(String name, String party) {
+    public Candidate(String name, String party, String nic, Election election) {
         this.name = name;
         this.party = party;
+        this.nic = nic;
+        this.election = election;
+    }
+
+    public Candidate(String name, String party, String nic) {
+        this.name = name;
+        this.party = party;
+        this.nic = nic;
     }
 
     public Long getId() {
@@ -54,5 +66,13 @@ public class Candidate {
 
     public void setNic(String nic) {
         this.nic = nic;
+    }
+
+    public Election getElection() {
+        return election;
+    }
+
+    public void setElection(Election election) {
+        this.election = election;
     }
 }

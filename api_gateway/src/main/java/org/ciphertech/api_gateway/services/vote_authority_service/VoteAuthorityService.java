@@ -1,5 +1,6 @@
 package org.ciphertech.api_gateway.services.vote_authority_service;
 
+import org.ciphertech.api_gateway.dto.authority.CandidateCreationRequest;
 import org.ciphertech.api_gateway.services.auth_service.models.User;
 import org.ciphertech.api_gateway.common.cryptography.GroupSignature;
 import org.ciphertech.api_gateway.common.cryptography.MultiSignature;
@@ -15,7 +16,6 @@ import java.math.BigInteger;
 import java.security.*;
 import java.security.spec.X509EncodedKeySpec;
 import java.time.LocalDateTime;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -80,9 +80,6 @@ public class VoteAuthorityService {
             throw new IllegalStateException("Error initializing group signature: " + e.getMessage());
         }
 
-        if (multiSignature == null) {
-            throw new IllegalStateException("MultiSignature bean not found!");
-        }
         // Create a multi-signature key pair for the service
         try {
             KeyPair keyPair = multiSignature.generateKeyPair();
@@ -110,15 +107,21 @@ public class VoteAuthorityService {
 
 
     // Add a candidate to the election
-    public Candidate addCandidate(Candidate candidate) {
+    public Candidate addCandidate(CandidateCreationRequest candidate) {
 
         // Validate inputs (e.g., ensure candidate name is not empty, etc.)
         if (candidate.getName().isEmpty()) {
             throw new IllegalArgumentException("Candidate name cannot be empty.");
         }
 
+        Candidate newCandidate = new Candidate(candidate.getName(), candidate.getParty(), candidate.getNic());
+        Election election = electionRepository.findById(candidate.getElectionId())
+                .orElseThrow(() -> new IllegalArgumentException("Election not found with id: " + candidate.getElectionId()));
+
+        newCandidate.setElection(election);
+
         // Save the candidate to the database
-        return candidateRepository.save(candidate);
+        return candidateRepository.save(newCandidate);
     }
 
     // Delete a candidate from the election
@@ -212,13 +215,11 @@ public class VoteAuthorityService {
         return ballot;
     }
 
-    public Boolean confirmBallotSubmission(Long id) {
+    public void confirmBallotSubmission(Long id) {
         Ballot ballot = ballotRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Ballot not found with id: " + id));
         ballot.setSubmittedAt(LocalDateTime.now());
         ballotRepository.save(ballot);
-
-        return true;
     }
 
     // Start an election
