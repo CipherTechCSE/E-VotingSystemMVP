@@ -206,6 +206,7 @@ class ElectionSystem:
         # Send GET request to request a ballot
         headers = {"Authorization": f"Bearer {self.token}"}  # Include the Bearer token
         response = requests.get(f"{self.base_url}/authority/requestBallot/{election_id}", headers=headers)
+        print(response.text)
         if response.status_code == 200:
             return response.json()  # Return the ballot info
         else:

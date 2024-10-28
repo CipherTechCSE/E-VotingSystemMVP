@@ -16,7 +16,6 @@ import java.math.BigInteger;
 import java.security.*;
 import java.security.spec.X509EncodedKeySpec;
 import java.time.LocalDateTime;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -81,9 +80,6 @@ public class VoteAuthorityService {
             throw new IllegalStateException("Error initializing group signature: " + e.getMessage());
         }
 
-        if (multiSignature == null) {
-            throw new IllegalStateException("MultiSignature bean not found!");
-        }
         // Create a multi-signature key pair for the service
         try {
             KeyPair keyPair = multiSignature.generateKeyPair();
@@ -219,13 +215,11 @@ public class VoteAuthorityService {
         return ballot;
     }
 
-    public Boolean confirmBallotSubmission(Long id) {
+    public void confirmBallotSubmission(Long id) {
         Ballot ballot = ballotRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Ballot not found with id: " + id));
         ballot.setSubmittedAt(LocalDateTime.now());
         ballotRepository.save(ballot);
-
-        return true;
     }
 
     // Start an election
