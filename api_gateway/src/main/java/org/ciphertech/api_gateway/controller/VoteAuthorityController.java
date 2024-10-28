@@ -1,6 +1,7 @@
 package org.ciphertech.api_gateway.controller;
 
 import org.ciphertech.api_gateway.dto.authority.AuthorityResponse;
+import org.ciphertech.api_gateway.dto.authority.CandidateCreationRequest;
 import org.ciphertech.api_gateway.dto.authority.JoinGroupRequest;
 import org.ciphertech.api_gateway.dto.authority.RqJoinGroupRequest;
 import org.ciphertech.api_gateway.services.auth_service.models.User;
@@ -82,7 +83,7 @@ public class VoteAuthorityController {
 
     // Add a Candidate to an Election
     @PostMapping("/admin/candidate")
-    public ResponseEntity<AuthorityResponse<Candidate>> addCandidate(@RequestBody Candidate candidate) {
+    public ResponseEntity<AuthorityResponse<Candidate>> addCandidate(@RequestBody CandidateCreationRequest candidate) {
         try {
             // Call the service method to add the candidate
             Candidate savedCandidate = voteAuthorityService.addCandidate(candidate);

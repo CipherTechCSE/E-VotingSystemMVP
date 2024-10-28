@@ -1,5 +1,6 @@
 package org.ciphertech.api_gateway.services.vote_authority_service;
 
+import org.ciphertech.api_gateway.dto.authority.CandidateCreationRequest;
 import org.ciphertech.api_gateway.services.auth_service.models.User;
 import org.ciphertech.api_gateway.common.cryptography.GroupSignature;
 import org.ciphertech.api_gateway.common.cryptography.MultiSignature;
@@ -110,15 +111,21 @@ public class VoteAuthorityService {
 
 
     // Add a candidate to the election
-    public Candidate addCandidate(Candidate candidate) {
+    public Candidate addCandidate(CandidateCreationRequest candidate) {
 
         // Validate inputs (e.g., ensure candidate name is not empty, etc.)
         if (candidate.getName().isEmpty()) {
             throw new IllegalArgumentException("Candidate name cannot be empty.");
         }
 
+        Candidate newCandidate = new Candidate(candidate.getName(), candidate.getParty(), candidate.getNic());
+        Election election = electionRepository.findById(candidate.getElectionId())
+                .orElseThrow(() -> new IllegalArgumentException("Election not found with id: " + candidate.getElectionId()));
+
+        newCandidate.setElection(election);
+
         // Save the candidate to the database
-        return candidateRepository.save(candidate);
+        return candidateRepository.save(newCandidate);
     }
 
     // Delete a candidate from the election

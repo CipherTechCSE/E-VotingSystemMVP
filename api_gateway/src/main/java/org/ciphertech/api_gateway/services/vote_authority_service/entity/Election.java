@@ -77,4 +77,44 @@ public class Election {
     public void setIsActive(Boolean isActive) {
         this.isActive = isActive;
     }
+
+    public List<Candidate> getCandidates() {
+        return candidates;
+    }
+
+    public void setCandidates(List<Candidate> candidates) {
+        this.candidates = candidates;
+    }
+
+    public List<Ballot> getBallots() {
+        return ballots;
+    }
+
+    public void setBallots(List<Ballot> ballots) {
+        this.ballots = ballots;
+    }
+
+    public List<Voter> getVoters() {
+        return voters;
+    }
+
+    public void setVoters(List<Voter> voters) {
+        this.voters = voters;
+    }
+
+    public void addVoter(Voter voter) {
+        this.voters.add(voter);
+    }
+
+    public void addCandidate(Candidate candidate) {
+        this.candidates.add(candidate);
+    }
+
+    public void addBallot(Ballot ballot) {
+        this.ballots.add(ballot);
+    }
+
+    public void removeVoter(Voter voter) {
+        this.voters.remove(voter);
+    }
 }
