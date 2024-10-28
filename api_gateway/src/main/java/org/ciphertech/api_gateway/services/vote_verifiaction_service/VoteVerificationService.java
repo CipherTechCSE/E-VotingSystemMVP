@@ -7,14 +7,14 @@ import org.springframework.stereotype.Service;
 @Service
 public class VoteVerificationService {
 
-    private VoteStorageService voteStorageService;
+    private final VoteStorageService voteStorageService;
 
     @Autowired
     public VoteVerificationService(VoteStorageService voteStorageService) {
         this.voteStorageService = voteStorageService;
     }
 
-    public void verifyVote(String hash) {
-        voteStorageService.verifyVote(hash);
+    public Boolean verifyVote(String hash) {
+        return voteStorageService.verifyVote(hash);
     }
 }

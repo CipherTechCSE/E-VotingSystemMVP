@@ -258,21 +258,6 @@ public class VoteAuthorityController {
         }
     }
 
-    // Called by Vote submission service to confirm ballot submission TOBE moved to vote submission service
-    @PostMapping("/internal/confirm-ballot-submission/{id}")
-    public ResponseEntity<AuthorityResponse<Ballot>> confirmBallotSubmission(@PathVariable Long id) {
-        try {
-            // Call the service method to confirm the ballot submission
-            Boolean confirmed = voteAuthorityService.confirmBallotSubmission(id);
-
-            AuthorityResponse<Ballot> response = new AuthorityResponse<>(confirmed ? "Ballot submitted successfully" : "Error submitting ballot", null);
-            return new ResponseEntity<>(response, confirmed ? HttpStatus.OK : HttpStatus.BAD_REQUEST);
-        } catch (IllegalArgumentException e) {
-            AuthorityResponse<Ballot> response = new AuthorityResponse<>("Error submitting ballot: " + e.getMessage(), null);
-            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
-        }
-    }
-
     // Notify vote count service
     @PostMapping("/admin/notify-vote-count")
     public ResponseEntity<AuthorityResponse<Candidate>> notifyVoteCount() {
